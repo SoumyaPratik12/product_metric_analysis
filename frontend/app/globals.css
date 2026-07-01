@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: #f6f8f5;
+  color: #17201b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background:
+    linear-gradient(180deg, rgba(215, 247, 223, 0.42), rgba(246, 248, 245, 0) 360px),
+    #f6f8f5;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.chart-axis text {
+  fill: #65736a;
+  font-size: 12px;
+}
+

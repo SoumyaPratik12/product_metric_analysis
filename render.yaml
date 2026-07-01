@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: product-metrics-api
+    runtime: docker
+    plan: starter
+    rootDir: backend
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: CORS_ORIGINS
+        sync: false
+
+  - type: web
+    name: product-metrics-web
+    runtime: docker
+    plan: starter
+    rootDir: frontend
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
