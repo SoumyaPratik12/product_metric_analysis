@@ -11,13 +11,16 @@ import {
   FileText,
   Gauge,
   LayoutDashboard,
+  LogOut,
   Loader2,
+  Save,
   Send,
   Settings,
   ShieldCheck,
   Sparkles,
   TrendingDown,
   TrendingUp,
+  Upload,
   Users,
   Workflow,
 } from "lucide-react";
@@ -34,6 +37,8 @@ import {
   YAxis,
 } from "recharts";
 import { askQuestion, getExecutiveReport, getIntegrations, getOverview } from "@/lib/api";
+import { isSupabaseConfigured, supabase, type AppUser } from "@/lib/supabase";
+import { listDatasets, saveConversation, saveDashboard, uploadDataset, type DatasetRecord } from "@/lib/supabase-persistence";
 import type { ExecutiveReport, Insight, Integration, MetricCard, Overview, QueryResponse } from "@/lib/types";
 
 const sampleQuestions = [
@@ -58,6 +63,13 @@ export default function Home() {
   const [query, setQuery] = useState(sampleQuestions[0]);
   const [answer, setAnswer] = useState<QueryResponse | null>(null);
   const [isAsking, setIsAsking] = useState(false);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [datasets, setDatasets] = useState<DatasetRecord[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [persistenceMessage, setPersistenceMessage] = useState("");
 
   useEffect(() => {
     Promise.all([getOverview(), getIntegrations(), getExecutiveReport(), askQuestion(sampleQuestions[0])]).then(
@@ -70,6 +82,34 @@ export default function Home() {
     );
   }, []);
 
+  useEffect(() => {
+    if (!supabase) return;
+
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setAuthMessage("");
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setDatasets([]);
+      return;
+    }
+
+    listDatasets(user.id)
+      .then(setDatasets)
+      .catch(() => setPersistenceMessage("Unable to load datasets. Check Supabase RLS setup."));
+  }, [user]);
+
   async function submitQuestion(question = query) {
     const trimmed = question.trim();
     if (!trimmed) return;
@@ -77,7 +117,75 @@ export default function Home() {
     setQuery(trimmed);
     const response = await askQuestion(trimmed);
     setAnswer(response);
+    if (user) {
+      try {
+        await saveConversation(user.id, response);
+        setPersistenceMessage("Conversation saved to Supabase.");
+      } catch {
+        setPersistenceMessage("Answer generated, but Supabase could not save the conversation.");
+      }
+    }
     setIsAsking(false);
+  }
+
+  async function handleAuth(mode: "signin" | "signup") {
+    if (!supabase) {
+      setAuthMessage("Add Supabase env vars to enable authentication.");
+      return;
+    }
+
+    if (!authEmail || !authPassword) {
+      setAuthMessage("Enter email and password.");
+      return;
+    }
+
+    const request =
+      mode === "signin"
+        ? supabase.auth.signInWithPassword({ email: authEmail, password: authPassword })
+        : supabase.auth.signUp({ email: authEmail, password: authPassword });
+
+    const { error } = await request;
+    setAuthMessage(error ? error.message : mode === "signin" ? "Signed in." : "Account created. Check email if confirmation is enabled.");
+  }
+
+  async function handleSignOut() {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setUser(null);
+    setPersistenceMessage("");
+  }
+
+  async function handleSaveDashboard() {
+    if (!user || !answer) {
+      setPersistenceMessage("Sign in with Supabase to save dashboards.");
+      return;
+    }
+
+    try {
+      await saveDashboard(user.id, answer);
+      setPersistenceMessage("Dashboard saved to Supabase.");
+    } catch {
+      setPersistenceMessage("Dashboard save failed. Check Supabase RLS setup.");
+    }
+  }
+
+  async function handleDatasetUpload(file: File | undefined) {
+    if (!file) return;
+    if (!user) {
+      setPersistenceMessage("Sign in with Supabase to upload datasets.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const dataset = await uploadDataset(user.id, file);
+      setDatasets((current) => [dataset, ...current].slice(0, 5));
+      setPersistenceMessage("CSV uploaded to Supabase Storage.");
+    } catch {
+      setPersistenceMessage("Upload failed. Check the Supabase storage bucket and RLS policies.");
+    } finally {
+      setIsUploading(false);
+    }
   }
 
   const selectedChart = useMemo(() => {
@@ -135,7 +243,7 @@ export default function Home() {
               <h1 className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">Product Intelligence Workspace</h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <StatusPill icon={ShieldCheck} label="RBAC ready" />
+              <StatusPill icon={ShieldCheck} label={user ? "Supabase session" : "Auth ready"} />
               <StatusPill icon={Database} label="Warehouse sample" />
               <StatusPill icon={Activity} label="Live API" />
             </div>
@@ -158,10 +266,11 @@ export default function Home() {
                     </div>
                     <div className="flex gap-2">
                       <button
+                        onClick={handleSaveDashboard}
                         className="grid h-9 w-9 place-items-center rounded-md border border-ink/10 text-ink/70 hover:bg-mist"
                         title="Saved dashboards"
                       >
-                        <BarChart3 className="h-4 w-4" aria-hidden />
+                        <Save className="h-4 w-4" aria-hidden />
                       </button>
                       <button
                         className="grid h-9 w-9 place-items-center rounded-md border border-ink/10 text-ink/70 hover:bg-mist"
@@ -279,12 +388,31 @@ export default function Home() {
             </div>
 
             <aside className="space-y-4">
-              <Panel title="AI Insight Queue" subtitle="Ranked product opportunities">
+                <Panel title="AI Insight Queue" subtitle="Ranked product opportunities">
                 <div className="space-y-3">
                   {(answer?.insights ?? overview?.insights ?? []).map((insight) => (
                     <InsightCard key={insight.title} insight={insight} />
                   ))}
                 </div>
+              </Panel>
+
+              <Panel title="Supabase Workspace" subtitle={isSupabaseConfigured ? "Auth, storage, and saved work" : "Demo mode until env vars are set"}>
+                <AuthPanel
+                  user={user}
+                  email={authEmail}
+                  password={authPassword}
+                  message={authMessage}
+                  onEmailChange={setAuthEmail}
+                  onPasswordChange={setAuthPassword}
+                  onAuth={handleAuth}
+                  onSignOut={handleSignOut}
+                />
+                <DatasetUploader
+                  datasets={datasets}
+                  isUploading={isUploading}
+                  message={persistenceMessage}
+                  onUpload={handleDatasetUpload}
+                />
               </Panel>
 
               <Panel title="Connected Sources" subtitle="Data sync status">
@@ -470,6 +598,126 @@ function StatusDot({ status }: { status: Integration["status"] }) {
   );
 }
 
+function AuthPanel({
+  user,
+  email,
+  password,
+  message,
+  onEmailChange,
+  onPasswordChange,
+  onAuth,
+  onSignOut,
+}: {
+  user: AppUser | null;
+  email: string;
+  password: string;
+  message: string;
+  onEmailChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onAuth: (mode: "signin" | "signup") => void;
+  onSignOut: () => void;
+}) {
+  if (user) {
+    return (
+      <div className="rounded-lg border border-ink/10 bg-mint/45 p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-pine">Signed in</p>
+            <p className="mt-1 truncate text-sm font-semibold">{user.email}</p>
+          </div>
+          <button
+            onClick={onSignOut}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-pine/20 bg-white text-pine hover:bg-mint"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-ink/10 bg-mist/55 p-3">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pine">
+        <Users className="h-4 w-4" aria-hidden />
+        Supabase Auth
+      </div>
+      <div className="mt-3 space-y-2">
+        <input
+          value={email}
+          onChange={(event) => onEmailChange(event.target.value)}
+          className="h-10 w-full rounded-md border border-ink/10 bg-white px-3 text-sm outline-none ring-pine/15 focus:border-pine focus:ring-4"
+          placeholder="Email"
+          type="email"
+        />
+        <input
+          value={password}
+          onChange={(event) => onPasswordChange(event.target.value)}
+          className="h-10 w-full rounded-md border border-ink/10 bg-white px-3 text-sm outline-none ring-pine/15 focus:border-pine focus:ring-4"
+          placeholder="Password"
+          type="password"
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <button className="h-9 rounded-md bg-pine text-xs font-semibold text-white hover:bg-pine/92" onClick={() => onAuth("signin")}>
+            Sign in
+          </button>
+          <button className="h-9 rounded-md border border-ink/10 bg-white text-xs font-semibold text-ink/75 hover:bg-mint" onClick={() => onAuth("signup")}>
+            Sign up
+          </button>
+        </div>
+        {message && <p className="text-xs leading-5 text-ink/62">{message}</p>}
+      </div>
+    </div>
+  );
+}
+
+function DatasetUploader({
+  datasets,
+  isUploading,
+  message,
+  onUpload,
+}: {
+  datasets: DatasetRecord[];
+  isUploading: boolean;
+  message: string;
+  onUpload: (file: File | undefined) => void;
+}) {
+  return (
+    <div className="mt-3 rounded-lg border border-ink/10 bg-white p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">CSV Connector</p>
+          <p className="mt-1 text-xs text-ink/58">Upload sample product data</p>
+        </div>
+        <label className="grid h-9 w-9 cursor-pointer place-items-center rounded-md border border-ink/10 text-pine hover:bg-mint" title="Upload CSV">
+          {isUploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Upload className="h-4 w-4" aria-hidden />}
+          <input
+            className="hidden"
+            type="file"
+            accept=".csv,text/csv"
+            disabled={isUploading}
+            onChange={(event) => onUpload(event.target.files?.[0])}
+          />
+        </label>
+      </div>
+      {message && <p className="mt-3 rounded-md bg-mist px-3 py-2 text-xs leading-5 text-ink/70">{message}</p>}
+      <div className="mt-3 space-y-2">
+        {datasets.length === 0 ? (
+          <p className="text-xs leading-5 text-ink/55">No uploaded datasets yet.</p>
+        ) : (
+          datasets.map((dataset) => (
+            <div key={dataset.id} className="rounded-md bg-mist/70 px-3 py-2">
+              <p className="truncate text-xs font-semibold">{dataset.file_name}</p>
+              <p className="mt-1 text-[11px] text-ink/50">{Math.max(1, Math.round(dataset.file_size / 1024))} KB · {dataset.status}</p>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ReportBlock({ label, items, tone }: { label: string; items: string[]; tone: "good" | "risk" | "action" }) {
   const marker = tone === "good" ? "bg-pine" : tone === "risk" ? "bg-coral" : "bg-gold";
   return (
@@ -486,4 +734,3 @@ function ReportBlock({ label, items, tone }: { label: string; items: string[]; t
     </div>
   );
 }
-
