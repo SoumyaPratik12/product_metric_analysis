@@ -63,8 +63,21 @@ create table if not exists public.datasets (
   file_name text not null,
   file_path text not null,
   file_size bigint not null default 0,
+  row_count integer not null default 0,
+  columns_json jsonb not null default '[]'::jsonb,
   status text not null default 'uploaded',
+  last_error text,
   created_at timestamptz not null default now()
+);
+
+create table if not exists public.dataset_rows (
+  id uuid primary key default gen_random_uuid(),
+  dataset_id uuid not null references public.datasets(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  row_index integer not null,
+  row_data jsonb not null,
+  created_at timestamptz not null default now(),
+  unique (dataset_id, row_index)
 );
 
 create table if not exists public.reports (
@@ -83,6 +96,7 @@ alter table public.projects enable row level security;
 alter table public.ai_conversations enable row level security;
 alter table public.saved_dashboards enable row level security;
 alter table public.datasets enable row level security;
+alter table public.dataset_rows enable row level security;
 alter table public.reports enable row level security;
 
 create policy "Users can read own profile" on public.profiles
@@ -115,8 +129,17 @@ create policy "Users can manage own dashboards" on public.saved_dashboards
 create policy "Users can manage own datasets" on public.datasets
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+create policy "Users can manage own dataset rows" on public.dataset_rows
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 create policy "Users can manage own reports" on public.reports
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create index if not exists dataset_rows_dataset_id_idx
+  on public.dataset_rows (dataset_id);
+
+create index if not exists dataset_rows_user_id_idx
+  on public.dataset_rows (user_id);
 
 insert into storage.buckets (id, name, public)
 values ('product-datasets', 'product-datasets', false)
@@ -139,4 +162,3 @@ create policy "Users can delete own dataset files" on storage.objects
     bucket_id = 'product-datasets'
     and auth.uid()::text = (storage.foldername(name))[1]
   );
-

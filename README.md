@@ -6,6 +6,7 @@ AI-powered product analytics without SQL. This repository is structured for clou
 
 - Conversational analytics workspace for product questions
 - Supabase-ready authentication, user persistence, and CSV upload storage
+- CSV row indexing for uploaded datasets, so signed-in users can ask questions against their own uploaded file
 - KPI overview, retention, funnel, engagement, revenue, and health metrics
 - AI-style insight generation with chart recommendations and next steps
 - Executive summary endpoint and UI preview
@@ -58,6 +59,16 @@ Backend:
 5. Add the frontend env vars from `frontend/.env.example` to your host.
 
 The app runs in demo mode when Supabase env vars are missing, then enables login, saved conversations, saved dashboards, and CSV uploads when they are configured.
+
+## Supabase Migrations
+
+If the base schema has already been run, apply newer migrations from `supabase/migrations/`.
+
+Current migration:
+
+- `001_dataset_rows.sql`: adds `dataset_rows`, dataset row counts, dataset column metadata, and RLS policies for indexed CSV data.
+
+After this migration, CSV uploads are stored in Supabase Storage and indexed into `dataset_rows`. When a signed-in user asks a question, the frontend first tries to answer from the latest indexed CSV, then falls back to the sample analytics API.
 
 ## API
 

@@ -38,7 +38,15 @@ import {
 } from "recharts";
 import { askQuestion, getExecutiveReport, getIntegrations, getOverview } from "@/lib/api";
 import { isSupabaseConfigured, supabase, type AppUser } from "@/lib/supabase";
-import { listDatasets, saveConversation, saveDashboard, uploadDataset, type DatasetRecord } from "@/lib/supabase-persistence";
+import {
+  analyzeLatestDataset,
+  ensureUserWorkspace,
+  listDatasets,
+  saveConversation,
+  saveDashboard,
+  uploadDataset,
+  type DatasetRecord,
+} from "@/lib/supabase-persistence";
 import type { ExecutiveReport, Insight, Integration, MetricCard, Overview, QueryResponse } from "@/lib/types";
 
 const sampleQuestions = [
@@ -87,6 +95,9 @@ export default function Home() {
 
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
+      if (data.user) {
+        ensureUserWorkspace(data.user).catch(() => setPersistenceMessage("Signed in, but workspace setup needs Supabase policy review."));
+      }
     });
 
     const {
@@ -94,6 +105,9 @@ export default function Home() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setAuthMessage("");
+      if (session?.user) {
+        ensureUserWorkspace(session.user).catch(() => setPersistenceMessage("Signed in, but workspace setup needs Supabase policy review."));
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -115,12 +129,15 @@ export default function Home() {
     if (!trimmed) return;
     setIsAsking(true);
     setQuery(trimmed);
-    const response = await askQuestion(trimmed);
+    const datasetResponse = user ? await analyzeLatestDataset(user.id, trimmed) : null;
+    const response = datasetResponse ?? (await askQuestion(trimmed));
     setAnswer(response);
     if (user) {
       try {
         await saveConversation(user.id, response);
-        setPersistenceMessage("Conversation saved to Supabase.");
+        setPersistenceMessage(
+          datasetResponse ? "Answered from uploaded CSV and saved to Supabase." : "Conversation saved to Supabase.",
+        );
       } catch {
         setPersistenceMessage("Answer generated, but Supabase could not save the conversation.");
       }
@@ -180,7 +197,7 @@ export default function Home() {
     try {
       const dataset = await uploadDataset(user.id, file);
       setDatasets((current) => [dataset, ...current].slice(0, 5));
-      setPersistenceMessage("CSV uploaded to Supabase Storage.");
+      setPersistenceMessage(`CSV uploaded and indexed with ${dataset.row_count} rows.`);
     } catch {
       setPersistenceMessage("Upload failed. Check the Supabase storage bucket and RLS policies.");
     } finally {
@@ -688,7 +705,7 @@ function DatasetUploader({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">CSV Connector</p>
-          <p className="mt-1 text-xs text-ink/58">Upload sample product data</p>
+                  <p className="mt-1 text-xs text-ink/58">Upload sample product data</p>
         </div>
         <label className="grid h-9 w-9 cursor-pointer place-items-center rounded-md border border-ink/10 text-pine hover:bg-mint" title="Upload CSV">
           {isUploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Upload className="h-4 w-4" aria-hidden />}
@@ -709,7 +726,9 @@ function DatasetUploader({
           datasets.map((dataset) => (
             <div key={dataset.id} className="rounded-md bg-mist/70 px-3 py-2">
               <p className="truncate text-xs font-semibold">{dataset.file_name}</p>
-              <p className="mt-1 text-[11px] text-ink/50">{Math.max(1, Math.round(dataset.file_size / 1024))} KB · {dataset.status}</p>
+              <p className="mt-1 text-[11px] text-ink/50">
+                {Math.max(1, Math.round(dataset.file_size / 1024))} KB · {dataset.row_count} rows · {dataset.status}
+              </p>
             </div>
           ))
         )}

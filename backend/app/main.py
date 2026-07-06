@@ -22,6 +22,9 @@ def _allowed_origins() -> list[str]:
     return ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 
+allowed_origins = _allowed_origins()
+
+
 app = FastAPI(
     title="Product Metrics Explorer API",
     version="0.1.0",
@@ -30,8 +33,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins(),
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials="*" not in allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -93,4 +96,3 @@ def executive_report() -> ExecutiveReport:
         ],
         metrics=overview_metrics(),
     )
-

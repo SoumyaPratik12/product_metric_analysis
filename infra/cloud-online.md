@@ -13,6 +13,14 @@ This MVP is designed to be built and deployed online from GitHub.
 7. In Render, set the frontend `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 8. Deploy both services from the Render dashboard.
 
+For the current production frontend, Render should use:
+
+```text
+CORS_ORIGINS=https://product-metric-analysis.vercel.app
+```
+
+Use `*` only temporarily during troubleshooting.
+
 ## Production Path
 
 - Frontend: Vercel or CloudFront-hosted Next.js
