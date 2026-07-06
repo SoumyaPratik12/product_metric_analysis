@@ -78,6 +78,7 @@ export default function Home() {
   const [datasets, setDatasets] = useState<DatasetRecord[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [persistenceMessage, setPersistenceMessage] = useState("");
+  const [activeTab, setActiveTab] = useState("Overview");
 
   useEffect(() => {
     Promise.all([getOverview(), getIntegrations(), getExecutiveReport(), askQuestion(sampleQuestions[0])]).then(
@@ -210,6 +211,37 @@ export default function Home() {
     return <AnswerChart response={answer} />;
   }, [answer]);
 
+  const alertsList = [
+    {
+      id: 1,
+      type: "critical",
+      title: "Funnel Conversion Dropoff Alert",
+      desc: "Conversion rate from 'Onboarding' to 'First Insight' dropped below 60% this week. Currently at 58%.",
+      time: "2 hours ago"
+    },
+    {
+      id: 2,
+      type: "warning",
+      title: "DAU Trend Decline",
+      desc: "Daily Active Users decreased by 5.4% WoW. Engagement has fallen to an average of 10.9 minutes.",
+      time: "1 day ago"
+    },
+    {
+      id: 3,
+      type: "success",
+      title: "MRR Milestone Achieved",
+      desc: "Monthly Recurring Revenue reached $132.4K, net of expansion and churn.",
+      time: "3 days ago"
+    },
+    {
+      id: 4,
+      type: "info",
+      title: "Amplitude Sync Status",
+      desc: "Integration is currently running and syncing latest event attributes.",
+      time: "5 days ago"
+    }
+  ];
+
   return (
     <main className="min-h-screen text-ink">
       <div className="flex min-h-screen">
@@ -224,13 +256,15 @@ export default function Home() {
             </div>
           </div>
           <nav className="space-y-1">
-            {navItems.map((item, index) => {
+            {navItems.map((item) => {
               const Icon = item.icon;
+              const isActive = activeTab === item.label;
               return (
                 <button
                   key={item.label}
+                  onClick={() => setActiveTab(item.label)}
                   className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm transition ${
-                    index === 0 ? "bg-mint text-pine" : "text-ink/68 hover:bg-ink/5"
+                    isActive ? "bg-mint text-pine font-semibold" : "text-ink/68 hover:bg-ink/5"
                   }`}
                   title={item.label}
                 >
@@ -257,7 +291,13 @@ export default function Home() {
                 <span className="h-1 w-1 rounded-full bg-ink/30" />
                 <span>Cloud MVP</span>
               </div>
-              <h1 className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">Product Intelligence Workspace</h1>
+              <h1 className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">
+                {activeTab === "Overview" && "Product Intelligence Workspace"}
+                {activeTab === "AI Chat" && "AI Metrics Explorer"}
+                {activeTab === "Reports" && "Executive Briefing Center"}
+                {activeTab === "Alerts" && "Workspace Alerts & System Health"}
+                {activeTab === "Settings" && "Workspace Settings"}
+              </h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill icon={ShieldCheck} label={user ? "Supabase session" : "Auth ready"} />
@@ -268,193 +308,321 @@ export default function Home() {
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="space-y-4">
-              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {(overview?.metrics ?? []).map((metric) => (
-                  <MetricTile key={metric.label} metric={metric} />
-                ))}
-              </section>
+              {/* Overview Tab Content */}
+              {activeTab === "Overview" && (
+                <>
+                  <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {(overview?.metrics ?? []).map((metric) => (
+                      <MetricTile key={metric.label} metric={metric} />
+                    ))}
+                  </section>
 
-              <section className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
-                <div className="rounded-lg border border-ink/10 bg-white p-4 shadow-panel">
-                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold">AI Metrics Explorer</p>
-                      <p className="text-xs text-ink/58">Natural-language analytics</p>
+                  <section className="grid gap-4 xl:grid-cols-2">
+                    <ChartPanel title="Retention by Feature" subtitle="30-day retained users">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={overview?.retention_by_feature ?? []} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
+                          <CartesianGrid vertical={false} stroke="#dfe8df" />
+                          <XAxis dataKey="feature" tickLine={false} axisLine={false} className="chart-axis" />
+                          <YAxis tickLine={false} axisLine={false} className="chart-axis" />
+                          <Tooltip cursor={{ fill: "#eef3ee" }} />
+                          <Bar dataKey="retention" radius={[6, 6, 0, 0]} fill="#145240" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartPanel>
+
+                    <ChartPanel title="Engagement Trend" subtitle="DAU and average minutes">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={overview?.engagement_trend ?? []} margin={{ top: 8, right: 18, left: -16, bottom: 0 }}>
+                          <CartesianGrid vertical={false} stroke="#dfe8df" />
+                          <XAxis dataKey="date" tickLine={false} axisLine={false} className="chart-axis" />
+                          <YAxis yAxisId="left" tickLine={false} axisLine={false} className="chart-axis" />
+                          <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} className="chart-axis" />
+                          <Tooltip />
+                          <Line yAxisId="left" type="monotone" dataKey="dau" stroke="#145240" strokeWidth={3} dot={false} />
+                          <Line yAxisId="right" type="monotone" dataKey="avg_minutes" stroke="#ff6b57" strokeWidth={3} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartPanel>
+                  </section>
+                </>
+              )}
+
+              {/* AI Chat Tab Content */}
+              {activeTab === "AI Chat" && (
+                <section className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
+                  <div className="rounded-lg border border-ink/10 bg-white p-4 shadow-panel">
+                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold">AI Metrics Explorer</p>
+                        <p className="text-xs text-ink/58">Natural-language analytics</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleSaveDashboard}
+                          className="grid h-9 w-9 place-items-center rounded-md border border-ink/10 text-ink/70 hover:bg-mist"
+                          title="Saved dashboards"
+                        >
+                          <Save className="h-4 w-4" aria-hidden />
+                        </button>
+                        <button
+                          className="grid h-9 w-9 place-items-center rounded-md border border-ink/10 text-ink/70 hover:bg-mist"
+                          title="Metric health"
+                        >
+                          <Gauge className="h-4 w-4" aria-hidden />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+
+                    <form
+                      className="flex flex-col gap-2 sm:flex-row"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        submitQuestion();
+                      }}
+                    >
+                      <input
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        className="min-h-11 flex-1 rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none ring-pine/20 transition focus:border-pine focus:ring-4"
+                        placeholder="Ask a product metrics question"
+                      />
                       <button
-                        onClick={handleSaveDashboard}
-                        className="grid h-9 w-9 place-items-center rounded-md border border-ink/10 text-ink/70 hover:bg-mist"
-                        title="Saved dashboards"
+                        type="submit"
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-pine px-4 text-sm font-semibold text-white transition hover:bg-pine/92 disabled:cursor-not-allowed disabled:opacity-70"
+                        disabled={isAsking}
                       >
-                        <Save className="h-4 w-4" aria-hidden />
+                        {isAsking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+                        Run
                       </button>
-                      <button
-                        className="grid h-9 w-9 place-items-center rounded-md border border-ink/10 text-ink/70 hover:bg-mist"
-                        title="Metric health"
-                      >
-                        <Gauge className="h-4 w-4" aria-hidden />
-                      </button>
+                    </form>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {sampleQuestions.map((question) => (
+                        <button
+                          key={question}
+                          onClick={() => submitQuestion(question)}
+                          className="rounded-md border border-ink/10 bg-white px-3 py-2 text-left text-xs text-ink/72 transition hover:border-pine/30 hover:bg-mint/45"
+                        >
+                          {question}
+                        </button>
+                      ))}
                     </div>
+
+                    {answer && (
+                      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+                        <div className="rounded-lg bg-mist/70 p-4">
+                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pine">
+                            <Bot className="h-4 w-4" aria-hidden />
+                            {answer.intent}
+                          </div>
+                          <p className="mt-3 text-sm leading-6 text-ink/82">{answer.answer}</p>
+                          <pre className="mt-4 max-h-28 overflow-auto rounded-md bg-ink p-3 text-xs leading-5 text-mint">
+                            {answer.generated_query}
+                          </pre>
+                        </div>
+                        <div className="rounded-lg border border-ink/10 bg-white p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">Follow-ups</p>
+                          <div className="mt-3 space-y-2">
+                            {answer.follow_ups.map((followUp) => (
+                              <button
+                                key={followUp}
+                                onClick={() => submitQuestion(followUp)}
+                                className="block w-full rounded-md bg-mist px-3 py-2 text-left text-xs leading-5 text-ink/76 hover:bg-mint"
+                              >
+                                {followUp}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <form
-                    className="flex flex-col gap-2 sm:flex-row"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      submitQuestion();
-                    }}
-                  >
-                    <input
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      className="min-h-11 flex-1 rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none ring-pine/20 transition focus:border-pine focus:ring-4"
-                      placeholder="Ask a product metrics question"
-                    />
-                    <button
-                      type="submit"
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-pine px-4 text-sm font-semibold text-white transition hover:bg-pine/92 disabled:cursor-not-allowed disabled:opacity-70"
-                      disabled={isAsking}
-                    >
-                      {isAsking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
-                      Run
-                    </button>
-                  </form>
+                  <div className="rounded-lg border border-ink/10 bg-white p-4 shadow-panel">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold">Generated Visualization</p>
+                        <p className="text-xs text-ink/58">{answer?.chart_type ?? "bar"} chart</p>
+                      </div>
+                      <StatusPill icon={Sparkles} label="AI selected" />
+                    </div>
+                    <div className="h-[330px] min-h-[330px]">{selectedChart}</div>
+                  </div>
+                </section>
+              )}
 
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {sampleQuestions.map((question) => (
-                      <button
-                        key={question}
-                        onClick={() => submitQuestion(question)}
-                        className="rounded-md border border-ink/10 bg-white px-3 py-2 text-left text-xs text-ink/72 transition hover:border-pine/30 hover:bg-mint/45"
-                      >
-                        {question}
-                      </button>
+              {/* Reports Tab Content */}
+              {activeTab === "Reports" && report && (
+                <div className="rounded-lg border border-ink/10 bg-white p-6 shadow-panel">
+                  <div className="border-b border-ink/10 pb-4 mb-6">
+                    <h2 className="text-xl font-bold text-ink">{report.title}</h2>
+                    <p className="text-sm text-ink/55 mt-1">Period: {report.period}</p>
+                  </div>
+                  <div className="grid gap-6 md:grid-cols-3">
+                    <div className="rounded-lg bg-mint/20 border border-pine/10 p-4">
+                      <ReportBlock label="Highlights" items={report.highlights} tone="good" />
+                    </div>
+                    <div className="rounded-lg bg-coral/5 border border-coral/10 p-4">
+                      <ReportBlock label="Risks" items={report.risks} tone="risk" />
+                    </div>
+                    <div className="rounded-lg bg-gold/10 border border-gold/15 p-4">
+                      <ReportBlock label="Recommended Actions" items={report.recommended_actions} tone="action" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Alerts Tab Content */}
+              {activeTab === "Alerts" && (
+                <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
+                  <div className="mb-4">
+                    <h2 className="text-sm font-semibold">Active Performance Alerts</h2>
+                    <p className="text-xs text-ink/55 mt-1">Real-time alerts triggered by anomalies in workspace metrics</p>
+                  </div>
+                  <div className="space-y-3">
+                    {alertsList.map((alert) => (
+                      <div key={alert.id} className="flex gap-3 rounded-lg border border-ink/10 bg-mist/30 p-4 transition hover:bg-mist/50">
+                        <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+                          alert.type === "critical" ? "bg-coral animate-pulse" : alert.type === "warning" ? "bg-gold" : alert.type === "success" ? "bg-pine" : "bg-blue-500"
+                        }`} />
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold">{alert.title}</p>
+                          <p className="text-xs text-ink/70 leading-relaxed">{alert.desc}</p>
+                          <p className="text-[10px] text-ink/50 mt-1">{alert.time}</p>
+                        </div>
+                      </div>
                     ))}
                   </div>
-
-                  {answer && (
-                    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-                      <div className="rounded-lg bg-mist/70 p-4">
-                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pine">
-                          <Bot className="h-4 w-4" aria-hidden />
-                          {answer.intent}
-                        </div>
-                        <p className="mt-3 text-sm leading-6 text-ink/82">{answer.answer}</p>
-                        <pre className="mt-4 max-h-28 overflow-auto rounded-md bg-ink p-3 text-xs leading-5 text-mint">
-                          {answer.generated_query}
-                        </pre>
-                      </div>
-                      <div className="rounded-lg border border-ink/10 bg-white p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">Follow-ups</p>
-                        <div className="mt-3 space-y-2">
-                          {answer.follow_ups.map((followUp) => (
-                            <button
-                              key={followUp}
-                              onClick={() => submitQuestion(followUp)}
-                              className="block w-full rounded-md bg-mist px-3 py-2 text-left text-xs leading-5 text-ink/76 hover:bg-mint"
-                            >
-                              {followUp}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
+              )}
 
-                <div className="rounded-lg border border-ink/10 bg-white p-4 shadow-panel">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold">Generated Visualization</p>
-                      <p className="text-xs text-ink/58">{answer?.chart_type ?? "bar"} chart</p>
+              {/* Settings Tab Content */}
+              {activeTab === "Settings" && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
+                    <h2 className="text-sm font-semibold">Workspace Configuration</h2>
+                    <p className="text-xs text-ink/55 mt-1">Configure connections, API paths, and workspace identity.</p>
+                    <div className="mt-6 space-y-4 max-w-md">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Workspace Name</label>
+                        <input className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none" defaultValue="Acme Mobile App" readOnly />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Active Data Window</label>
+                        <input className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none" defaultValue="June 2026 (Demo Window)" readOnly />
+                      </div>
                     </div>
-                    <StatusPill icon={Sparkles} label="AI selected" />
                   </div>
-                  <div className="h-[330px] min-h-[330px]">{selectedChart}</div>
                 </div>
-              </section>
-
-              <section className="grid gap-4 xl:grid-cols-2">
-                <ChartPanel title="Retention by Feature" subtitle="30-day retained users">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={overview?.retention_by_feature ?? []} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
-                      <CartesianGrid vertical={false} stroke="#dfe8df" />
-                      <XAxis dataKey="feature" tickLine={false} axisLine={false} className="chart-axis" />
-                      <YAxis tickLine={false} axisLine={false} className="chart-axis" />
-                      <Tooltip cursor={{ fill: "#eef3ee" }} />
-                      <Bar dataKey="retention" radius={[6, 6, 0, 0]} fill="#145240" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartPanel>
-
-                <ChartPanel title="Engagement Trend" subtitle="DAU and average minutes">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={overview?.engagement_trend ?? []} margin={{ top: 8, right: 18, left: -16, bottom: 0 }}>
-                      <CartesianGrid vertical={false} stroke="#dfe8df" />
-                      <XAxis dataKey="date" tickLine={false} axisLine={false} className="chart-axis" />
-                      <YAxis yAxisId="left" tickLine={false} axisLine={false} className="chart-axis" />
-                      <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} className="chart-axis" />
-                      <Tooltip />
-                      <Line yAxisId="left" type="monotone" dataKey="dau" stroke="#145240" strokeWidth={3} dot={false} />
-                      <Line yAxisId="right" type="monotone" dataKey="avg_minutes" stroke="#ff6b57" strokeWidth={3} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartPanel>
-              </section>
+              )}
             </div>
 
+            {/* Sidebar Columns relative to selected Tab */}
             <aside className="space-y-4">
-                <Panel title="AI Insight Queue" subtitle="Ranked product opportunities">
-                <div className="space-y-3">
-                  {(answer?.insights ?? overview?.insights ?? []).map((insight) => (
-                    <InsightCard key={insight.title} insight={insight} />
-                  ))}
-                </div>
-              </Panel>
-
-              <Panel title="Supabase Workspace" subtitle={isSupabaseConfigured ? "Auth, storage, and saved work" : "Demo mode until env vars are set"}>
-                <AuthPanel
-                  user={user}
-                  email={authEmail}
-                  password={authPassword}
-                  message={authMessage}
-                  onEmailChange={setAuthEmail}
-                  onPasswordChange={setAuthPassword}
-                  onAuth={handleAuth}
-                  onSignOut={handleSignOut}
-                />
-                <DatasetUploader
-                  datasets={datasets}
-                  isUploading={isUploading}
-                  message={persistenceMessage}
-                  onUpload={handleDatasetUpload}
-                />
-              </Panel>
-
-              <Panel title="Connected Sources" subtitle="Data sync status">
-                <div className="space-y-2">
-                  {integrations.map((integration) => (
-                    <div key={integration.name} className="flex items-center justify-between rounded-md border border-ink/10 bg-mist/45 p-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">{integration.name}</p>
-                        <p className="text-xs text-ink/55">{integration.category}</p>
-                      </div>
-                      <div className="text-right">
-                        <StatusDot status={integration.status} />
-                        <p className="mt-1 text-xs text-ink/50">{integration.last_sync}</p>
-                      </div>
+              {activeTab === "Overview" && (
+                <>
+                  <Panel title="AI Insight Queue" subtitle="Ranked product opportunities">
+                    <div className="space-y-3">
+                      {(answer?.insights ?? overview?.insights ?? []).map((insight) => (
+                        <InsightCard key={insight.title} insight={insight} />
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </Panel>
+                  </Panel>
+                  <Panel title="Connected Sources" subtitle="Data sync status">
+                    <div className="space-y-2">
+                      {integrations.map((integration) => (
+                        <div key={integration.name} className="flex items-center justify-between rounded-md border border-ink/10 bg-mist/45 p-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold">{integration.name}</p>
+                            <p className="text-xs text-ink/55">{integration.category}</p>
+                          </div>
+                          <div className="text-right">
+                            <StatusDot status={integration.status} />
+                            <p className="mt-1 text-xs text-ink/50">{integration.last_sync}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Panel>
+                </>
+              )}
 
-              {report && (
-                <Panel title={report.title} subtitle={report.period}>
-                  <ReportBlock label="Highlights" items={report.highlights} tone="good" />
-                  <ReportBlock label="Risks" items={report.risks} tone="risk" />
-                  <ReportBlock label="Actions" items={report.recommended_actions} tone="action" />
+              {activeTab === "AI Chat" && (
+                <Panel title="AI Insight Queue" subtitle="Ranked product opportunities">
+                  <div className="space-y-3">
+                    {(answer?.insights ?? overview?.insights ?? []).map((insight) => (
+                      <InsightCard key={insight.title} insight={insight} />
+                    ))}
+                  </div>
                 </Panel>
+              )}
+
+              {activeTab === "Reports" && (
+                <Panel title="Connected Sources" subtitle="Data sync status">
+                  <div className="space-y-2">
+                    {integrations.map((integration) => (
+                      <div key={integration.name} className="flex items-center justify-between rounded-md border border-ink/10 bg-mist/45 p-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{integration.name}</p>
+                          <p className="text-xs text-ink/55">{integration.category}</p>
+                        </div>
+                        <div className="text-right">
+                          <StatusDot status={integration.status} />
+                          <p className="mt-1 text-xs text-ink/50">{integration.last_sync}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              )}
+
+              {activeTab === "Alerts" && (
+                <Panel title="AI Insight Queue" subtitle="Ranked product opportunities">
+                  <div className="space-y-3">
+                    {(answer?.insights ?? overview?.insights ?? []).map((insight) => (
+                      <InsightCard key={insight.title} insight={insight} />
+                    ))}
+                  </div>
+                </Panel>
+              )}
+
+              {activeTab === "Settings" && (
+                <>
+                  <Panel title="Supabase Workspace" subtitle={isSupabaseConfigured ? "Auth, storage, and saved work" : "Demo mode until env vars are set"}>
+                    <AuthPanel
+                      user={user}
+                      email={authEmail}
+                      password={authPassword}
+                      message={authMessage}
+                      onEmailChange={setAuthEmail}
+                      onPasswordChange={setAuthPassword}
+                      onAuth={handleAuth}
+                      onSignOut={handleSignOut}
+                    />
+                    <DatasetUploader
+                      datasets={datasets}
+                      isUploading={isUploading}
+                      message={persistenceMessage}
+                      onUpload={handleDatasetUpload}
+                    />
+                  </Panel>
+                  <Panel title="Connected Sources" subtitle="Data sync status">
+                    <div className="space-y-2">
+                      {integrations.map((integration) => (
+                        <div key={integration.name} className="flex items-center justify-between rounded-md border border-ink/10 bg-mist/45 p-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold">{integration.name}</p>
+                            <p className="text-xs text-ink/55">{integration.category}</p>
+                          </div>
+                          <div className="text-right">
+                            <StatusDot status={integration.status} />
+                            <p className="mt-1 text-xs text-ink/50">{integration.last_sync}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Panel>
+                </>
               )}
             </aside>
           </div>
