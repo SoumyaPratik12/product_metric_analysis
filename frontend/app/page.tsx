@@ -32,6 +32,8 @@ import {
   Trash2,
   Heart,
   RefreshCw,
+  WifiOff,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Bar,
@@ -166,7 +168,18 @@ export default function Home() {
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
   const [editingReportName, setEditingReportName] = useState("");
 
+  // Offline and custom error state triggers for demonstration
+  const [isOffline, setIsOffline] = useState(false);
+  const [showMock500, setShowMock500] = useState(false);
+
   useEffect(() => {
+    // Monitor online/offline status
+    setIsOffline(!navigator.onLine);
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
     setIsLoadingOverview(true);
     setIsLoadingReports(true);
     Promise.all([getOverview(), getIntegrations(), getExecutiveReport(), askQuestion(sampleQuestions[0])])
@@ -211,6 +224,11 @@ export default function Home() {
         setIsLoadingOverview(false);
         setIsLoadingReports(false);
       });
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
   }, []);
 
   useEffect(() => {
@@ -427,12 +445,56 @@ export default function Home() {
     return <AnswerChart response={answer} />;
   }, [answer]);
 
+  // Offline Error state rendering
+  if (isOffline) {
+    return (
+      <main className="min-h-screen bg-[#f6f8f5] text-ink flex items-center justify-center p-6" role="main">
+        <div className="max-w-md w-full rounded-lg border border-ink/10 bg-white p-8 text-center shadow-panel">
+          <WifiOff className="h-16 w-16 text-coral mx-auto animate-pulse" aria-hidden="true" />
+          <h1 className="text-xl font-bold mt-6 text-pine">Connection Lost</h1>
+          <p className="text-sm text-ink/75 mt-2 leading-relaxed">
+            You are currently offline. Product Metrics Explorer requires an active internet connection to synchronize with StreamFlow data channels.
+          </p>
+          <button
+            onClick={() => setIsOffline(!navigator.onLine)}
+            className="mt-6 inline-flex h-10 items-center justify-center rounded-md bg-pine px-6 text-sm font-semibold text-white hover:bg-pine/90 focus:ring-2 focus:ring-pine/20 outline-none"
+            aria-label="Retry connection check"
+          >
+            Check Status Again
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // Mock 500 Internal Server Error rendering
+  if (showMock500) {
+    return (
+      <main className="min-h-screen bg-[#f6f8f5] text-ink flex items-center justify-center p-6" role="main">
+        <div className="max-w-md w-full rounded-lg border border-ink/10 bg-white p-8 text-center shadow-panel">
+          <AlertTriangle className="h-16 w-16 text-coral mx-auto animate-bounce" aria-hidden="true" />
+          <h1 className="text-xl font-bold mt-6 text-pine">500 Server Error</h1>
+          <p className="text-sm text-ink/75 mt-2 leading-relaxed">
+            An internal server error occurred while retrieving StreamFlow analytics tokens. The development team has been alerted.
+          </p>
+          <button
+            onClick={() => setShowMock500(false)}
+            className="mt-6 inline-flex h-10 items-center justify-center rounded-md bg-pine px-6 text-sm font-semibold text-white hover:bg-pine/90 focus:ring-2 focus:ring-pine/20 outline-none"
+            aria-label="Dismiss error page"
+          >
+            Go Back
+          </button>
+        </div>
+      </main>
+    );
+  }
+
   // Landing Page Render
   if (activeTab === "Landing" && !inDemoMode) {
     return (
-      <main className="min-h-screen bg-[#f6f8f5] text-ink">
+      <main className="min-h-screen bg-[#f6f8f5] text-ink" role="main">
         {/* Navbar */}
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-8">
+        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-8" role="navigation" aria-label="Main Navigation">
           <div className="flex items-center gap-3">
             <div className="grid h-9 w-9 place-items-center rounded-lg bg-pine text-white">
               <Sparkles className="h-4 w-4" />
@@ -442,13 +504,15 @@ export default function Home() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setActiveTab("Login")}
-              className="text-sm font-semibold text-ink/75 hover:text-ink transition"
+              className="text-sm font-semibold text-ink/75 hover:text-ink transition focus:ring-2 focus:ring-pine/20 outline-none rounded"
+              aria-label="Go to login page"
             >
               Sign In
             </button>
             <button
               onClick={triggerDemoMode}
-              className="inline-flex h-9 items-center justify-center rounded-md bg-pine px-4 text-xs font-semibold text-white transition hover:bg-pine/90"
+              className="inline-flex h-9 items-center justify-center rounded-md bg-pine px-4 text-xs font-semibold text-white transition hover:bg-pine/90 focus:ring-2 focus:ring-pine/20 outline-none"
+              aria-label="Start demonstrating application features"
             >
               Try Demo
             </button>
@@ -470,13 +534,15 @@ export default function Home() {
           <div className="mt-10 flex items-center justify-center gap-4">
             <button
               onClick={triggerDemoMode}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-pine px-6 text-sm font-semibold text-white shadow-md hover:bg-pine/92 transition"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-pine px-6 text-sm font-semibold text-white shadow-md hover:bg-pine/92 transition focus:ring-2 focus:ring-pine/20 outline-none"
+              aria-label="Try live dashboard demo"
             >
               Try Live Demo <Play className="h-3.5 w-3.5 fill-white" />
             </button>
             <button
               onClick={() => setActiveTab("About")}
-              className="inline-flex h-12 items-center justify-center rounded-md border border-ink/12 bg-white px-6 text-sm font-semibold text-ink/75 hover:bg-mist transition"
+              className="inline-flex h-12 items-center justify-center rounded-md border border-ink/12 bg-white px-6 text-sm font-semibold text-ink/75 hover:bg-mist transition focus:ring-2 focus:ring-pine/20 outline-none"
+              aria-label="Learn about project specifications"
             >
               Learn More
             </button>
@@ -556,7 +622,16 @@ export default function Home() {
   ];
 
   return (
-    <main className="min-h-screen text-ink bg-[#f6f8f5]">
+    <main className="min-h-screen text-ink bg-[#f6f8f5]" role="main">
+      
+      {/* 5. Demo Mode Banner */}
+      {inDemoMode && (
+        <div className="bg-pine text-white py-2 px-4 text-center text-xs font-bold flex items-center justify-center gap-2" role="banner">
+          <Sparkles className="h-4 w-4 animate-spin-slow text-mint" />
+          <span>Demo Mode: Showing sample StreamFlow analytics.</span>
+        </div>
+      )}
+
       <div className="flex min-h-screen">
         
         {/* Sidebar Nav */}
@@ -570,7 +645,7 @@ export default function Home() {
               <p className="text-xs text-ink/55">Explorer Cloud</p>
             </div>
           </div>
-          <nav className="space-y-1">
+          <nav className="space-y-1" aria-label="Sidebar navigation links">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.label;
@@ -578,11 +653,12 @@ export default function Home() {
                 <button
                   key={item.label}
                   onClick={() => setActiveTab(item.label)}
-                  className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm transition ${
+                  className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm transition focus:ring-2 focus:ring-pine/20 outline-none ${
                     isActive ? "bg-mint text-pine font-semibold" : "text-ink/68 hover:bg-ink/5"
                   }`}
+                  aria-current={isActive ? "page" : undefined}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                   <span>{item.label}</span>
                 </button>
               );
@@ -591,14 +667,15 @@ export default function Home() {
           
           <div className="mt-8 rounded-lg border border-ink/10 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">Active Workspace</p>
-            <p className="mt-2 text-sm font-semibold">{projectSettings.projectName} Streaming</p>
+            <p className="mt-2 text-sm font-semibold">{projectSettings.projectName} Product</p>
             <p className="mt-1 text-xs text-ink/58">Demo mode active</p>
           </div>
 
           <div className="mt-auto pt-8">
             <button
               onClick={handleSignOut}
-              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/10 transition"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/10 transition focus:ring-2 focus:ring-coral/20 outline-none"
+              aria-label="Log out of application"
             >
               <LogOut className="h-4 w-4" />
               <span>Leave Application</span>
@@ -644,12 +721,12 @@ export default function Home() {
               
               {/* Notifications / Success alerts */}
               {persistenceMessage && (
-                <div className="p-3 bg-mint/42 border border-pine/20 rounded-md text-xs font-semibold text-pine flex items-center justify-between">
+                <div className="p-3 bg-mint/42 border border-pine/20 rounded-md text-xs font-semibold text-pine flex items-center justify-between" role="alert">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4" />
                     <span>{persistenceMessage}</span>
                   </div>
-                  <button onClick={() => setPersistenceMessage("")} className="hover:text-ink">Dismiss</button>
+                  <button onClick={() => setPersistenceMessage("")} className="hover:text-ink focus:ring-2 focus:ring-pine/20 outline-none rounded p-0.5">Dismiss</button>
                 </div>
               )}
 
@@ -667,7 +744,7 @@ export default function Home() {
                         <input
                           value={authEmail}
                           onChange={(e) => setAuthEmail(e.target.value)}
-                          className="h-10 w-full rounded-md border border-ink/10 bg-mist/30 px-3 text-sm outline-none focus:border-pine"
+                          className="h-10 w-full rounded-md border border-ink/10 bg-mist/30 px-3 text-sm outline-none focus:border-pine focus:ring-4"
                           placeholder="name@company.com"
                           type="email"
                         />
@@ -677,7 +754,7 @@ export default function Home() {
                         <input
                           value={authPassword}
                           onChange={(e) => setAuthPassword(e.target.value)}
-                          className="h-10 w-full rounded-md border border-ink/10 bg-mist/30 px-3 text-sm outline-none focus:border-pine"
+                          className="h-10 w-full rounded-md border border-ink/10 bg-mist/30 px-3 text-sm outline-none focus:border-pine focus:ring-4"
                           placeholder="Password"
                           type="password"
                         />
@@ -685,13 +762,13 @@ export default function Home() {
                       <div className="grid grid-cols-2 gap-3 pt-2">
                         <button
                           onClick={() => handleAuth("signin")}
-                          className="h-10 rounded-md bg-pine text-xs font-semibold text-white hover:bg-pine/90"
+                          className="h-10 rounded-md bg-pine text-xs font-semibold text-white hover:bg-pine/90 focus:ring-2 focus:ring-pine/20 outline-none"
                         >
                           Sign in
                         </button>
                         <button
                           onClick={() => handleAuth("signup")}
-                          className="h-10 rounded-md border border-ink/10 bg-white text-xs font-semibold text-ink/75 hover:bg-mint/45"
+                          className="h-10 rounded-md border border-ink/10 bg-white text-xs font-semibold text-ink/75 hover:bg-mint/45 focus:ring-2 focus:ring-pine/20 outline-none"
                         >
                           Sign up
                         </button>
@@ -715,18 +792,28 @@ export default function Home() {
                   </div>
 
                   {isLoadingOverview ? (
-                    <div className="h-48 grid place-items-center rounded-lg border border-ink/10 bg-white">
-                      <Loader2 className="h-8 w-8 text-pine animate-spin" />
-                    </div>
+                    // 3. Loading Skeletons for dashboard overview items
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <SkeletonTile />
+                        <SkeletonTile />
+                        <SkeletonTile />
+                        <SkeletonTile />
+                      </div>
+                      <div className="grid gap-4 xl:grid-cols-2">
+                        <SkeletonChart />
+                        <SkeletonChart />
+                      </div>
+                    </>
                   ) : (
                     <>
-                      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key Performance Indicators">
                         {(overview?.metrics ?? []).map((metric) => (
                           <MetricTile key={metric.label} metric={metric} />
                         ))}
                       </section>
 
-                      <section className="grid gap-4 xl:grid-cols-2">
+                      <section className="grid gap-4 xl:grid-cols-2" aria-label="Visual Trends">
                         <ChartPanel title="Retention by Feature" subtitle="30-day retained users">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={overview?.retention_by_feature ?? []} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
@@ -755,7 +842,7 @@ export default function Home() {
                       </section>
 
                       {/* Top Features Adoption List */}
-                      <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
+                      <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel" aria-label="Adoption ratings">
                         <h2 className="text-sm font-semibold">Top Features Adoption Rate</h2>
                         <div className="mt-4 overflow-x-auto">
                           <table className="w-full text-left text-xs border-collapse">
@@ -803,7 +890,7 @@ export default function Home() {
                       <div className="flex gap-2">
                         <button
                           onClick={handleSaveReport}
-                          className="flex items-center gap-1.5 h-9 rounded-md border border-ink/10 px-3 text-xs text-pine bg-mint/30 hover:bg-mint transition"
+                          className="flex items-center gap-1.5 h-9 rounded-md border border-ink/10 px-3 text-xs text-pine bg-mint/30 hover:bg-mint transition focus:ring-2 focus:ring-pine/20 outline-none"
                           title="Save report to Briefing Center"
                         >
                           <Save className="h-4 w-4" /> Save Report
@@ -823,10 +910,11 @@ export default function Home() {
                         onChange={(event) => setQuery(event.target.value)}
                         className="min-h-11 flex-1 rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none ring-pine/20 transition focus:border-pine focus:ring-4"
                         placeholder="Ask a product metrics question"
+                        aria-label="Metrics question input"
                       />
                       <button
                         type="submit"
-                        className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-pine px-4 text-sm font-semibold text-white transition hover:bg-pine/92 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-pine px-4 text-sm font-semibold text-white transition hover:bg-pine/92 disabled:cursor-not-allowed disabled:opacity-70 focus:ring-2 focus:ring-pine/20 outline-none"
                         disabled={isAsking}
                       >
                         {isAsking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -839,7 +927,7 @@ export default function Home() {
                         <button
                           key={question}
                           onClick={() => submitQuestion(question)}
-                          className="rounded-md border border-ink/10 bg-white px-3 py-2 text-left text-xs text-ink/72 transition hover:border-pine/30 hover:bg-mint/45"
+                          className="rounded-md border border-ink/10 bg-white px-3 py-2 text-left text-xs text-ink/72 transition hover:border-pine/30 hover:bg-mint/45 focus:ring-2 focus:ring-pine/20 outline-none"
                         >
                           {question}
                         </button>
@@ -848,7 +936,16 @@ export default function Home() {
                   </div>
 
                   {/* Flow Layout: Summary ➔ Chart ➔ Insights ➔ Recommendation ➔ Suggested Follow-up Questions */}
-                  {answer && (
+                  {isAsking ? (
+                    <div className="space-y-4">
+                      <div className="min-h-24 bg-white border border-ink/10 rounded-lg p-5 animate-pulse flex flex-col gap-2">
+                        <div className="h-3 w-32 bg-mist rounded"></div>
+                        <div className="h-4 w-full bg-mist rounded"></div>
+                        <div className="h-4 w-3/4 bg-mist rounded"></div>
+                      </div>
+                      <SkeletonChart />
+                    </div>
+                  ) : answer ? (
                     <div className="space-y-4">
                       
                       {/* 1. Summary Card */}
@@ -871,7 +968,7 @@ export default function Home() {
                         </div>
                         <div className="h-[300px] min-h-[300px]">{selectedChart}</div>
                         <details className="mt-4">
-                          <summary className="text-xs font-bold text-pine cursor-pointer hover:underline">View SQL Query Code</summary>
+                          <summary className="text-xs font-bold text-pine cursor-pointer hover:underline focus:ring-2 focus:ring-pine/20 outline-none rounded">View SQL Query Code</summary>
                           <pre className="mt-2 overflow-auto rounded-md bg-ink p-3 text-xs leading-5 text-mint font-mono">
                             {answer.generated_query}
                           </pre>
@@ -895,7 +992,7 @@ export default function Home() {
                             <button
                               key={followUp}
                               onClick={() => submitQuestion(followUp)}
-                              className="rounded-md bg-mist hover:bg-mint px-3 py-2 text-left text-xs leading-5 text-ink/76 transition"
+                              className="rounded-md bg-mist hover:bg-mint px-3 py-2 text-left text-xs leading-5 text-ink/76 transition focus:ring-2 focus:ring-pine/20 outline-none"
                             >
                               {followUp}
                             </button>
@@ -904,7 +1001,7 @@ export default function Home() {
                       </div>
 
                     </div>
-                  )}
+                  ) : null}
                 </section>
               )}
 
@@ -912,8 +1009,16 @@ export default function Home() {
               {activeTab === "Reports" && (
                 <div className="space-y-4">
                   {isLoadingReports ? (
-                    <div className="h-48 grid place-items-center rounded-lg border border-ink/10 bg-white">
-                      <Loader2 className="h-8 w-8 text-pine animate-spin" />
+                    <div className="space-y-4">
+                      <div className="min-h-48 rounded-lg border border-ink/10 bg-white p-6 shadow-panel animate-pulse flex flex-col gap-3">
+                        <div className="h-6 w-48 bg-mist rounded"></div>
+                        <div className="h-3 w-24 bg-mist rounded"></div>
+                        <div className="grid grid-cols-3 gap-4 mt-6">
+                          <div className="h-24 bg-mist/50 rounded"></div>
+                          <div className="h-24 bg-mist/50 rounded"></div>
+                          <div className="h-24 bg-mist/50 rounded"></div>
+                        </div>
+                      </div>
                     </div>
                   ) : report ? (
                     <div className="rounded-lg border border-ink/10 bg-white p-6 shadow-panel">
@@ -946,7 +1051,7 @@ export default function Home() {
                         <p className="text-xs text-ink/55 mt-2">No saved reports yet.</p>
                         <button
                           onClick={() => setActiveTab("AI Chat")}
-                          className="mt-4 inline-flex h-9 items-center justify-center rounded-md bg-pine px-4 text-xs font-semibold text-white hover:bg-pine/90"
+                          className="mt-4 inline-flex h-9 items-center justify-center rounded-md bg-pine px-4 text-xs font-semibold text-white hover:bg-pine/90 focus:ring-2 focus:ring-pine/20 outline-none"
                         >
                           Go to AI Chat
                         </button>
@@ -960,21 +1065,21 @@ export default function Home() {
                             <div className="absolute top-4 right-4 flex items-center gap-2">
                               <button
                                 onClick={() => handleToggleFavoriteReport(saved.id)}
-                                className={`p-1.5 rounded hover:bg-white transition ${saved.isFavorite ? "text-coral" : "text-ink/40 hover:text-coral"}`}
+                                className={`p-1.5 rounded hover:bg-white transition focus:ring-2 focus:ring-pine/20 outline-none ${saved.isFavorite ? "text-coral" : "text-ink/40 hover:text-coral"}`}
                                 title="Favorite Report"
                               >
                                 <Heart className={`h-4 w-4 ${saved.isFavorite ? "fill-coral" : ""}`} />
                               </button>
                               <button
                                 onClick={() => handleStartRename(saved.id, saved.question)}
-                                className="p-1.5 rounded hover:bg-white text-ink/40 hover:text-pine transition"
+                                className="p-1.5 rounded hover:bg-white text-ink/40 hover:text-pine transition focus:ring-2 focus:ring-pine/20 outline-none"
                                 title="Rename Report"
                               >
                                 <Edit className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => handleDeleteReport(saved.id)}
-                                className="p-1.5 rounded hover:bg-white text-ink/40 hover:text-coral transition"
+                                className="p-1.5 rounded hover:bg-white text-ink/40 hover:text-coral transition focus:ring-2 focus:ring-pine/20 outline-none"
                                 title="Delete Report"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -994,8 +1099,8 @@ export default function Home() {
                                     onChange={(e) => setEditingReportName(e.target.value)}
                                     className="h-8 flex-1 rounded border border-ink/15 bg-white px-2 text-xs outline-none focus:border-pine"
                                   />
-                                  <button onClick={handleSaveRename} className="h-8 bg-pine text-white px-3 rounded text-xs font-semibold">Save</button>
-                                  <button onClick={() => setEditingReportId(null)} className="h-8 border border-ink/10 bg-white px-3 rounded text-xs">Cancel</button>
+                                  <button onClick={handleSaveRename} className="h-8 bg-pine text-white px-3 rounded text-xs font-semibold focus:ring-2 focus:ring-pine/20 outline-none">Save</button>
+                                  <button onClick={() => setEditingReportId(null)} className="h-8 border border-ink/10 bg-white px-3 rounded text-xs focus:ring-2 focus:ring-pine/20 outline-none">Cancel</button>
                                 </div>
                               ) : (
                                 <p className="text-sm font-bold mt-2">"{saved.question}"</p>
@@ -1071,7 +1176,7 @@ export default function Home() {
                           <p className="text-sm font-semibold">Select CSV Event Export File</p>
                           <p className="text-xs text-ink/50 mt-1">Accepts CSV up to 5MB, maximum 50,000 rows.</p>
                         </div>
-                        <label className="inline-flex h-10 cursor-pointer items-center justify-center rounded-md bg-pine px-4 text-xs font-semibold text-white hover:bg-pine/90 transition">
+                        <label className="inline-flex h-10 cursor-pointer items-center justify-center rounded-md bg-pine px-4 text-xs font-semibold text-white hover:bg-pine/90 transition focus-within:ring-2 focus-within:ring-pine/20 outline-none">
                           Choose File
                           <input
                             type="file"
@@ -1113,13 +1218,13 @@ export default function Home() {
                         <div className="flex gap-2 justify-end pt-4">
                           <button
                             onClick={() => setUploadStep("Upload")}
-                            className="h-9 px-4 rounded border border-ink/10 bg-white text-xs font-bold hover:bg-mist"
+                            className="h-9 px-4 rounded border border-ink/10 bg-white text-xs font-bold hover:bg-mist focus:ring-2 focus:ring-pine/20 outline-none"
                           >
                             Back
                           </button>
                           <button
                             onClick={importDataset}
-                            className="h-9 px-4 rounded bg-pine text-xs font-bold text-white hover:bg-pine/90"
+                            className="h-9 px-4 rounded bg-pine text-xs font-bold text-white hover:bg-pine/90 focus:ring-2 focus:ring-pine/20 outline-none"
                           >
                             Import Data
                           </button>
@@ -1148,7 +1253,7 @@ export default function Home() {
                         </div>
                         <button
                           onClick={() => setUploadStep("Upload")}
-                          className="h-9 px-4 rounded bg-pine text-xs font-bold text-white hover:bg-pine/90"
+                          className="h-9 px-4 rounded bg-pine text-xs font-bold text-white hover:bg-pine/90 focus:ring-2 focus:ring-pine/20 outline-none"
                         >
                           Upload Another File
                         </button>
@@ -1170,11 +1275,19 @@ export default function Home() {
                     {queryHistory.map((item, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between p-3 rounded-lg bg-mist/30 border border-ink/5 hover:border-pine/20 transition cursor-pointer"
+                        className="flex items-center justify-between p-3 rounded-lg bg-mist/30 border border-ink/5 hover:border-pine/20 transition cursor-pointer focus:ring-2 focus:ring-pine/20 outline-none"
+                        tabIndex={0}
                         onClick={() => {
                           setQuery(item.question);
                           setActiveTab("AI Chat");
                           submitQuestion(item.question);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            setQuery(item.question);
+                            setActiveTab("AI Chat");
+                            submitQuestion(item.question);
+                          }
                         }}
                       >
                         <div className="flex items-center gap-3">
@@ -1201,7 +1314,7 @@ export default function Home() {
                       <div>
                         <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Project Name</label>
                         <input
-                          className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none"
+                          className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none focus:border-pine"
                           value={projectSettings.projectName}
                           onChange={(e) => setProjectSettings({ ...projectSettings, projectName: e.target.value })}
                         />
@@ -1209,7 +1322,7 @@ export default function Home() {
                       <div>
                         <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Organization</label>
                         <input
-                          className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none"
+                          className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none focus:border-pine"
                           value={projectSettings.organization}
                           onChange={(e) => setProjectSettings({ ...projectSettings, organization: e.target.value })}
                         />
@@ -1218,7 +1331,7 @@ export default function Home() {
                         <div>
                           <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Currency</label>
                           <input
-                            className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none"
+                            className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none focus:border-pine"
                             value={projectSettings.currency}
                             onChange={(e) => setProjectSettings({ ...projectSettings, currency: e.target.value })}
                           />
@@ -1226,7 +1339,7 @@ export default function Home() {
                         <div>
                           <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Timezone</label>
                           <input
-                            className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none"
+                            className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none focus:border-pine"
                             value={projectSettings.timezone}
                             onChange={(e) => setProjectSettings({ ...projectSettings, timezone: e.target.value })}
                           />
@@ -1235,10 +1348,21 @@ export default function Home() {
                       <div>
                         <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Data Source</label>
                         <input
-                          className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none"
+                          className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none focus:border-pine"
                           value={projectSettings.dataSource}
                           onChange={(e) => setProjectSettings({ ...projectSettings, dataSource: e.target.value })}
                         />
+                      </div>
+                      
+                      {/* Debugging helpers to trigger mock 500 error page */}
+                      <div className="pt-6 border-t border-ink/10">
+                        <p className="text-xs font-semibold text-coral uppercase tracking-wider mb-2">Workspace Controls</p>
+                        <button
+                          onClick={() => setShowMock500(true)}
+                          className="h-9 px-4 rounded border border-coral text-coral bg-white text-xs font-semibold hover:bg-coral/10 focus:ring-2 focus:ring-coral/20 outline-none"
+                        >
+                          Trigger Mock 500 Error Page
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1352,7 +1476,7 @@ FastAPI (Render) ── verifies JWT (Supabase JWKS) ── resolves workspace_i
                           setActiveTab("AI Chat");
                           submitQuestion(item.question);
                         }}
-                        className="block w-full text-left rounded-md border border-ink/5 bg-mist/50 p-2.5 hover:border-pine/30 transition text-xs truncate"
+                        className="block w-full text-left rounded-md border border-ink/5 bg-mist/50 p-2.5 hover:border-pine/30 transition text-xs truncate focus:ring-2 focus:ring-pine/20 outline-none"
                       >
                         "{item.question}"
                       </button>
@@ -1417,19 +1541,51 @@ function MetricTile({ metric }: { metric: MetricCard }) {
   const isDown = metric.trend === "down";
   const Icon = isDown ? TrendingDown : TrendingUp;
   return (
-    <article className="min-h-32 rounded-lg border border-ink/10 bg-white p-4 shadow-panel">
+    <article className="min-h-32 rounded-lg border border-ink/10 bg-white p-4 shadow-panel flex flex-col justify-between">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">{metric.label}</p>
         <div className={`grid h-8 w-8 place-items-center rounded-md ${isDown ? "bg-coral/12 text-coral" : "bg-mint text-pine"}`}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <p className="mt-4 text-2xl font-semibold">{metric.value}</p>
+      <p className="mt-4 text-2xl font-semibold text-pine">{metric.value}</p>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
         <span className={isDown ? "font-semibold text-coral" : "font-semibold text-pine"}>{metric.delta}</span>
         <span className="text-ink/55">{metric.detail}</span>
       </div>
     </article>
+  );
+}
+
+// 3. Loading Skeletons Components
+function SkeletonTile() {
+  return (
+    <div className="min-h-32 rounded-lg border border-ink/10 bg-white p-4 shadow-panel animate-pulse flex flex-col justify-between">
+      <div className="flex justify-between items-start">
+        <div className="h-3 w-24 bg-mist rounded"></div>
+        <div className="h-8 w-8 bg-mist rounded-md"></div>
+      </div>
+      <div className="h-6 w-20 bg-mist rounded mt-4"></div>
+      <div className="h-3 w-32 bg-mist rounded mt-2"></div>
+    </div>
+  );
+}
+
+function SkeletonChart() {
+  return (
+    <div className="h-[310px] rounded-lg border border-ink/10 bg-white p-4 shadow-panel animate-pulse flex flex-col justify-between">
+      <div>
+        <div className="h-4 w-32 bg-mist rounded mb-2"></div>
+        <div className="h-3 w-48 bg-mist rounded"></div>
+      </div>
+      <div className="flex-1 bg-mist/30 rounded-lg mt-4 flex items-end gap-2 p-4">
+        <div className="h-[20%] w-full bg-mist rounded-t"></div>
+        <div className="h-[40%] w-full bg-mist rounded-t"></div>
+        <div className="h-[60%] w-full bg-mist rounded-t"></div>
+        <div className="h-[80%] w-full bg-mist rounded-t"></div>
+        <div className="h-[50%] w-full bg-mist rounded-t"></div>
+      </div>
+    </div>
   );
 }
 
@@ -1594,10 +1750,10 @@ function AuthPanel({
           </div>
           <button
             onClick={onSignOut}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-pine/20 bg-white text-pine hover:bg-mint"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-pine/20 bg-white text-pine hover:bg-mint focus:ring-2 focus:ring-pine/20 outline-none"
             title="Sign out"
           >
-            <LogOut className="h-4 w-4" aria-hidden />
+            <LogOut className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -1607,7 +1763,7 @@ function AuthPanel({
   return (
     <div className="rounded-lg border border-ink/10 bg-mist/55 p-3">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pine">
-        <Users className="h-4 w-4" aria-hidden />
+        <Users className="h-4 w-4" aria-hidden="true" />
         Supabase Auth
       </div>
       <div className="mt-3 space-y-2">
@@ -1617,6 +1773,7 @@ function AuthPanel({
           className="h-10 w-full rounded-md border border-ink/10 bg-white px-3 text-sm outline-none ring-pine/15 focus:border-pine focus:ring-4"
           placeholder="Email"
           type="email"
+          aria-label="Auth Email"
         />
         <input
           value={password}
@@ -1624,12 +1781,13 @@ function AuthPanel({
           className="h-10 w-full rounded-md border border-ink/10 bg-white px-3 text-sm outline-none ring-pine/15 focus:border-pine focus:ring-4"
           placeholder="Password"
           type="password"
+          aria-label="Auth Password"
         />
         <div className="grid grid-cols-2 gap-2">
-          <button className="h-9 rounded-md bg-pine text-xs font-semibold text-white hover:bg-pine/92" onClick={() => onAuth("signin")}>
+          <button className="h-9 rounded-md bg-pine text-xs font-semibold text-white hover:bg-pine/92 focus:ring-2 focus:ring-pine/20 outline-none" onClick={() => onAuth("signin")}>
             Sign in
           </button>
-          <button className="h-9 rounded-md border border-ink/10 bg-white text-xs font-semibold text-ink/75 hover:bg-mint" onClick={() => onAuth("signup")}>
+          <button className="h-9 rounded-md border border-ink/10 bg-white text-xs font-semibold text-ink/75 hover:bg-mint focus:ring-2 focus:ring-pine/20 outline-none" onClick={() => onAuth("signup")}>
             Sign up
           </button>
         </div>
