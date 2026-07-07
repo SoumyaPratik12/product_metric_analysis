@@ -22,8 +22,8 @@ try:
         print("Health status:", health_data)
         assert health_data["status"] == "ok"
         
-    print("\nTesting matched query 'Show revenue trend'...")
-    query_data = json.dumps({"question": "Show revenue trend"}).encode()
+    print("\nTesting matched query 'What's our MRR?'...")
+    query_data = json.dumps({"question": "What's our MRR?"}).encode()
     req = urllib.request.Request(
         "http://127.0.0.1:8091/api/query",
         data=query_data,
@@ -51,8 +51,8 @@ try:
         assert ans_data["intent"] == "Clarification Required"
         assert "hello" not in ans_data["follow_ups"]
 
-    print("\nTesting ambiguous query 'mrr and retention'...")
-    query_data = json.dumps({"question": "mrr and retention"}).encode()
+    print("\nTesting ambiguous query 'retention and churn'...")
+    query_data = json.dumps({"question": "retention and churn"}).encode()
     req = urllib.request.Request(
         "http://127.0.0.1:8091/api/query",
         data=query_data,

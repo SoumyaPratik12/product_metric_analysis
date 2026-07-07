@@ -1,132 +1,199 @@
-import re
+"""
+Deterministic, zero-cost NL intent router for the analytics function catalog.
 
-INTENTS = {
-    "retention": {
-        "keywords": {
-            "retention": 5.0,
-            "retain": 5.0,
-            "cohort": 5.0,
-            "feature": 1.5,
-            "retained": 4.0,
-        },
-        "negatives": ["mrr", "revenue", "churn", "funnel", "dropoff", "drop off", "conversion", "arpu"],
-        "regex": [
-            r"which feature.*highest.*retention",
-            r"highest.*retention",
-            r"retention.*feature"
-        ]
-    },
-    "funnel": {
-        "keywords": {
-            "funnel": 5.0,
-            "dropoff": 4.0,
-            "drop-off": 4.0,
-            "conversion": 4.0,
-            "signup": 3.0,
-            "onboarding": 3.0,
-            "invite": 2.0,
-        },
-        "negatives": ["mrr", "revenue", "churn", "retention", "dau", "arpu"],
-        "regex": [
-            r"where.*drop off.*funnel",
-            r"drop off.*funnel",
-            r"funnel.*conversion",
-            r"where do users drop off"
-        ]
-    },
-    "revenue": {
-        "keywords": {
-            "revenue": 5.0,
-            "mrr": 5.0,
-            "arr": 4.0,
-            "arpu": 4.0,
-            "churn": 5.0,
-            "plan": 2.0,
-            "pricing": 2.0,
-        },
-        "negatives": ["retention", "funnel", "onboarding", "dau", "session"],
-        "regex": [
-            r"show.*revenue.*trend",
-            r"revenue.*trend",
-            r"mrr.*trend",
-            r"churn.*rate"
-        ]
-    },
-    "engagement": {
-        "keywords": {
-            "dau": 5.0,
-            "engagement": 5.0,
-            "session": 4.0,
-            "active": 2.0,
-            "minutes": 3.0,
-            "average": 1.5,
-        },
-        "negatives": ["mrr", "revenue", "churn", "funnel", "arpu"],
-        "regex": [
-            r"why.*engagement.*decrease",
-            r"dau.*decrease",
-            r"engagement.*decrease",
-            r"why did engagement decrease"
-        ]
-    }
-}
+Design goals (precision over recall):
+  - Never silently guess when confidence is low or two intents are close.
+  - Negative keywords are what actually fix cross-intent bleed
+    (e.g. "premium vs free retention" must NOT route to retention_by_feature).
+  - All params are extracted from a fixed vocabulary (feature names, plan
+    names, metric names) -- never free text passed into a query.
+
+This module has NO network calls and NO LLM dependency. It is pure,
+synchronous, and unit-testable in isolation.
+"""
+
+import re
+from dataclasses import dataclass, field
+from typing import Callable, Optional
+
+# ---------------------------------------------------------------------------
+# Fixed vocabularies (must match your actual dataset's feature/plan names)
+# ---------------------------------------------------------------------------
+FEATURE_NAMES = ["notes", "ai search", "ocr scanner", "ai summary", "templates", "export"]
+
+
+def extract_feature(q: str) -> Optional[str]:
+    for f in FEATURE_NAMES:
+        if f in q:
+            return f.title()
+    return None
+
+
+def extract_plan_metric(q: str) -> str:
+    if any(t in q for t in ("revenue", "arpu", "pay", "spend")):
+        return "weeklyRevenuePerUser"
+    if any(t in q for t in ("session", "time spent", "engagement time")):
+        return "avgSessionMin"
+    return "retentionDay30"
+
+
+def extract_retention_window(q: str) -> Optional[str]:
+    if "day 1" in q or "day1" in q or "first day" in q:
+        return "day1"
+    if "day 7" in q or "day7" in q or "week" in q:
+        return "day7"
+    return "day30"  # default: the metric people mean when unspecified
+
+
+# ---------------------------------------------------------------------------
+# Intent definitions
+# ---------------------------------------------------------------------------
+@dataclass
+class Intent:
+    name: str
+    function: str
+    keywords: dict           # term -> weight
+    phrases: list            # regex patterns; a match adds a large fixed bonus
+    negative_keywords: dict = field(default_factory=dict)  # term -> penalty
+    param_extractors: dict = field(default_factory=dict)   # param_name -> fn(q) -> value
+
+
+PHRASE_MATCH_BONUS = 4.0
+CONFIDENCE_THRESHOLD = 3.0   # below this: no_match / low_confidence
+AMBIGUITY_MARGIN = 1.0       # top two scores closer than this: ambiguous
+
+INTENTS = [
+    Intent(
+        name="retention_by_feature",
+        function="retentionByFeature",
+        keywords={"retention": 3, "retain": 3, "retained": 3},
+        phrases=[
+            r"which feature.*(highest|best|most).*retention",
+            r"retention by feature",
+            r"feature.*retention",
+        ],
+        # Fixes the exact bug class you likely have: a plan-comparison
+        # question mentioning "retention" must not win this intent.
+        negative_keywords={"premium": 2.5, "free": 2.5, "plan": 2, "vs": 1.5, "versus": 1.5},
+        param_extractors={"window": extract_retention_window},
+    ),
+    Intent(
+        name="plan_comparison",
+        function="planComparison",
+        keywords={"premium": 3, "free": 2.5, "compare": 2, "vs": 2, "versus": 2},
+        phrases=[r"compare.*(premium|free)", r"(premium|free).*vs.*(premium|free)"],
+        param_extractors={"metric": extract_plan_metric},
+    ),
+    Intent(
+        name="engagement_drop",
+        function="engagementDropDiagnosis",
+        keywords={"drop": 3, "decrease": 3, "why": 2.5, "declin": 2.5, "fell": 2},
+        phrases=[
+            r"why (did|is|has).*(drop|decreas|declin|fell)",
+            r"engagement.*(drop|down|fell)",
+        ],
+    ),
+    Intent(
+        name="dau_trend",
+        function="dauTrend",
+        keywords={"dau": 3, "daily active": 3, "trend": 1.5, "over time": 1.5, "60 days": 2},
+        phrases=[r"dau.*(last|past|over)", r"daily active users.*(trend|last|past)"],
+        # A "why did DAU drop" question is a diagnosis, not a raw trend --
+        # penalize this intent when "why"/"drop" are present.
+        negative_keywords={"why": 2.5, "drop": 2},
+    ),
+    Intent(
+        name="funnel",
+        function="funnelAnalysis",
+        keywords={"funnel": 3, "drop off": 3, "dropoff": 3, "checkout": 2, "conversion": 1.5},
+        phrases=[r"where.*(drop off|dropoff|do users leave)", r"funnel"],
+    ),
+    Intent(
+        name="acquisition",
+        function="acquisitionChannels",
+        keywords={"channel": 3, "acquisition": 3, "campaign": 3, "convert": 1.5, "source": 1.5},
+        phrases=[r"(best|top).*channel", r"acquisition channel", r"(best|top).*campaign"],
+    ),
+    Intent(
+        name="revenue",
+        function="revenueMetrics",
+        keywords={"mrr": 3, "arpu": 3, "ltv": 3, "revenue": 2},
+        phrases=[r"\b(mrr|arpu|ltv)\b", r"revenue metrics"],
+        # "which feature increases revenue" or "premium vs free revenue"
+        # belong to other intents -- don't let bare "revenue" steal those.
+        negative_keywords={"premium": 1.5, "free": 1.5, "feature": 1.5},
+    ),
+    Intent(
+        name="churn",
+        function="churnAnalysis",
+        keywords={"churn": 3, "cancel": 2},
+        phrases=[r"churn rate", r"why.*(people|users|customers).*(leav|cancel)"],
+    ),
+    Intent(
+        name="feature_adoption",
+        function="featureAdoption",
+        keywords={"adoption": 3, "most popular": 2.5, "least used": 2.5},
+        phrases=[r"(most|highest) (popular|adopt)", r"weekly adoption"],
+        negative_keywords={"retention": 2.5},
+    ),
+    Intent(
+        name="engagement_by_feature",
+        function="engagementByFeature",
+        keywords={"session": 2, "active users": 2, "most active": 3},
+        phrases=[r"(average|avg) session", r"most active"],
+        negative_keywords={"drop": 2.5, "why": 2},
+    ),
+]
+
 
 def route(question: str) -> dict:
-    normalized = question.lower().strip()
-    
-    # Check for exact regex matches first
-    for intent, config in INTENTS.items():
-        # Skip regex matching if a negative keyword is present
-        has_negative = any(neg in normalized for neg in config["negatives"])
-        if has_negative:
-            continue
-            
-        for pattern in config["regex"]:
-            if re.search(pattern, normalized):
-                return {
-                    "status": "matched",
-                    "function": intent,
-                    "params": {}
-                }
-                
-    scores = {}
-    for intent, config in INTENTS.items():
+    """
+    Returns one of:
+      {"status": "matched", "function": ..., "params": {...}, "confidence": float}
+      {"status": "ambiguous", "candidates": [name, name]}
+      {"status": "low_confidence", "candidates": [name, ...]}
+      {"status": "no_match"}
+    Callers MUST branch on `status` -- only "matched" should trigger a
+    function call. The other three should surface a clarification UI.
+    """
+    q = question.lower().strip()
+    scored = []
+
+    for intent in INTENTS:
         score = 0.0
-        
-        # Add weights for matched keywords
-        for keyword, weight in config["keywords"].items():
-            if keyword in normalized:
+        for kw, weight in intent.keywords.items():
+            if kw in q:
                 score += weight
-                
-        # Deduct score for negatives
-        for negative in config["negatives"]:
-            if negative in normalized:
-                score -= 8.0 # High penalty for negative terms
-                
-        scores[intent] = score
-        
-    # Sort intents by score
-    sorted_intents = sorted(scores.items(), key=lambda item: item[1], reverse=True)
-    
-    top_intent, top_score = sorted_intents[0]
-    second_intent, second_score = sorted_intents[1]
-    
-    # Threshold checks
-    if top_score < 2.0:
-        return {
-            "status": "low_confidence",
-            "candidates": ["retention", "funnel", "revenue", "engagement"]
-        }
-        
-    # Ambiguity check
-    if top_score - second_score < 1.5:
-        return {
-            "status": "ambiguous",
-            "candidates": [top_intent, second_intent]
-        }
-        
+        for pattern in intent.phrases:
+            if re.search(pattern, q):
+                score += PHRASE_MATCH_BONUS
+        for nkw, penalty in intent.negative_keywords.items():
+            if nkw in q:
+                score -= penalty
+        if score > 0:
+            scored.append((score, intent))
+
+    if not scored:
+        return {"status": "no_match"}
+
+    scored.sort(key=lambda x: -x[0])
+    top_score, top_intent = scored[0]
+
+    if top_score < CONFIDENCE_THRESHOLD:
+        return {"status": "low_confidence", "candidates": [i.name for _, i in scored[:3]]}
+
+    if len(scored) > 1 and (top_score - scored[1][0]) < AMBIGUITY_MARGIN:
+        return {"status": "ambiguous", "candidates": [scored[0][1].name, scored[1][1].name]}
+
+    params = {}
+    for pname, extractor in top_intent.param_extractors.items():
+        val = extractor(q)
+        if val:
+            params[pname] = val
+
     return {
         "status": "matched",
-        "function": top_intent,
-        "params": {}
+        "function": top_intent.function,
+        "params": params,
+        "confidence": round(top_score, 2),
     }
