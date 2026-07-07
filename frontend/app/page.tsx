@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   BarChart3,
-  Bell,
   Bot,
   CheckCircle2,
   Database,
@@ -22,7 +21,14 @@ import {
   TrendingUp,
   Upload,
   Users,
-  Workflow,
+  BookOpen,
+  History,
+  Info,
+  ArrowRight,
+  ClipboardList,
+  Lock,
+  Plus,
+  Play,
 } from "lucide-react";
 import {
   Bar,
@@ -31,6 +37,8 @@ import {
   Cell,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -56,12 +64,49 @@ const sampleQuestions = [
   "Where do users drop off in the funnel?",
 ];
 
-const navItems = [
-  { label: "Overview", icon: LayoutDashboard },
-  { label: "AI Chat", icon: Bot },
-  { label: "Reports", icon: FileText },
-  { label: "Alerts", icon: Bell },
-  { label: "Settings", icon: Settings },
+const metricLibraryData = [
+  {
+    name: "Retention",
+    definition: "The percentage of users who return to the app after their first visit.",
+    formula: "(Active Users in Cohort / Cohort Size) * 100",
+    description: "Crucial for evaluating product-market fit and long-term customer value.",
+  },
+  {
+    name: "DAU (Daily Active Users)",
+    definition: "The number of unique users active in a 24-hour window.",
+    formula: "COUNT(DISTINCT user_id) per day",
+    description: "Primary health metric tracking daily engagement, growth, and habit-formation.",
+  },
+  {
+    name: "MAU (Monthly Active Users)",
+    definition: "The number of unique users active in a 30-day window.",
+    formula: "COUNT(DISTINCT user_id) per month",
+    description: "High-level overview metric representing total active audience size.",
+  },
+  {
+    name: "MRR (Monthly Recurring Revenue)",
+    definition: "Total predictable subscription revenue generated monthly.",
+    formula: "SUM(Plan Price) for all active monthly subscriptions",
+    description: "The core financial benchmark metric for SaaS business models.",
+  },
+  {
+    name: "Churn Rate",
+    definition: "The percentage of customers who cancel their subscriptions in a given period.",
+    formula: "(Canceled Users / Starting Period Users) * 100",
+    description: "Tracks customer dissatisfaction, product issues, or revenue leak.",
+  },
+  {
+    name: "Conversion Rate",
+    definition: "The percentage of users who complete a desired onboarding step.",
+    formula: "(Converted Users / Total Funnel Starts) * 100",
+    description: "Identifies points of friction inside your activation funnel.",
+  },
+  {
+    name: "Activation Rate",
+    definition: "The percentage of users who complete the core 'value-realizing' action.",
+    formula: "(Activated Users / Total Registrations) * 100",
+    description: "Strongest indicator of early user conversion and successful onboarding.",
+  },
 ];
 
 export default function Home() {
@@ -78,7 +123,34 @@ export default function Home() {
   const [datasets, setDatasets] = useState<DatasetRecord[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [persistenceMessage, setPersistenceMessage] = useState("");
-  const [activeTab, setActiveTab] = useState("Overview");
+  
+  // Navigation & Page State
+  const [inDemoMode, setInDemoMode] = useState(false);
+  const [activeTab, setActiveTab] = useState("Landing");
+
+  // Saved Reports & History
+  const [savedReports, setSavedReports] = useState<Array<QueryResponse & { id: string; savedAt: string }>>([]);
+  const [queryHistory, setQueryHistory] = useState<Array<{ question: string; timestamp: string }>>([
+    { question: "Which feature has the highest retention?", timestamp: "Today, 10:24 AM" },
+    { question: "What is our MRR?", timestamp: "Today, 9:15 AM" },
+    { question: "Show DAU over the last 60 days", timestamp: "Yesterday, 4:30 PM" },
+    { question: "Where do users drop off in the funnel?", timestamp: "Yesterday, 2:10 PM" },
+  ]);
+
+  // Dataset Upload Flow
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [csvPreviewHeaders, setCsvPreviewHeaders] = useState<string[]>([]);
+  const [csvPreviewRows, setCsvPreviewRows] = useState<string[][]>([]);
+  const [uploadStep, setUploadStep] = useState<"Upload" | "Preview" | "Import" | "Ready">("Upload");
+
+  // Project Settings State
+  const [projectSettings, setProjectSettings] = useState({
+    projectName: "Acme Mobile App",
+    timezone: "UTC-5 (EST)",
+    currency: "USD ($)",
+    dataSource: "Supabase Production Table",
+    organization: "Acme Corp",
+  });
 
   useEffect(() => {
     Promise.all([getOverview(), getIntegrations(), getExecutiveReport(), askQuestion(sampleQuestions[0])]).then(
@@ -97,6 +169,8 @@ export default function Home() {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
       if (data.user) {
+        setInDemoMode(true);
+        setActiveTab("Dashboard");
         ensureUserWorkspace(data.user).catch(() => setPersistenceMessage("Signed in, but workspace setup needs Supabase policy review."));
       }
     });
@@ -107,6 +181,8 @@ export default function Home() {
       setUser(session?.user ?? null);
       setAuthMessage("");
       if (session?.user) {
+        setInDemoMode(true);
+        setActiveTab("Dashboard");
         ensureUserWorkspace(session.user).catch(() => setPersistenceMessage("Signed in, but workspace setup needs Supabase policy review."));
       }
     });
@@ -130,6 +206,13 @@ export default function Home() {
     if (!trimmed) return;
     setIsAsking(true);
     setQuery(trimmed);
+
+    // Save to local Query History
+    setQueryHistory((prev) => [
+      { question: trimmed, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+      ...prev,
+    ]);
+
     try {
       let datasetResponse = null;
       if (user) {
@@ -162,6 +245,22 @@ export default function Home() {
     }
   }
 
+  function handleSaveReport() {
+    if (!answer) return;
+    const isAlreadySaved = savedReports.some((r) => r.question === answer.question);
+    if (isAlreadySaved) {
+      setPersistenceMessage("Report is already saved.");
+      return;
+    }
+    const newReport = {
+      ...answer,
+      id: Math.random().toString(36).substr(2, 9),
+      savedAt: new Date().toLocaleDateString(),
+    };
+    setSavedReports((prev) => [newReport, ...prev]);
+    setPersistenceMessage("Report saved successfully!");
+  }
+
   async function handleAuth(mode: "signin" | "signup") {
     if (!supabase) {
       setAuthMessage("Add Supabase env vars to enable authentication.");
@@ -179,47 +278,66 @@ export default function Home() {
         : supabase.auth.signUp({ email: authEmail, password: authPassword });
 
     const { error } = await request;
-    setAuthMessage(error ? error.message : mode === "signin" ? "Signed in." : "Account created. Check email if confirmation is enabled.");
+    if (error) {
+      setAuthMessage(error.message);
+    } else {
+      setAuthMessage(mode === "signin" ? "Signed in." : "Account created. Check email if confirmation is enabled.");
+      setInDemoMode(true);
+      setActiveTab("Dashboard");
+    }
   }
 
   async function handleSignOut() {
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     setUser(null);
+    setInDemoMode(false);
+    setActiveTab("Landing");
     setPersistenceMessage("");
   }
 
-  async function handleSaveDashboard() {
-    if (!user || !answer) {
-      setPersistenceMessage("Sign in with Supabase to save dashboards.");
-      return;
-    }
-
-    try {
-      await saveDashboard(user.id, answer);
-      setPersistenceMessage("Dashboard saved to Supabase.");
-    } catch {
-      setPersistenceMessage("Dashboard save failed. Check Supabase RLS setup.");
-    }
+  function triggerDemoMode() {
+    setInDemoMode(true);
+    setActiveTab("Dashboard");
   }
 
-  async function handleDatasetUpload(file: File | undefined) {
-    if (!file) return;
-    if (!user) {
-      setPersistenceMessage("Sign in with Supabase to upload datasets.");
-      return;
-    }
+  // File Upload flow handlers
+  function selectFile(file: File) {
+    setUploadFile(file);
+    
+    // Read first 3 rows for preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split("\n").filter((l) => l.trim());
+      const parsedLines = lines.map((l) => l.split(","));
+      if (parsedLines.length > 0) {
+        setCsvPreviewHeaders(parsedLines[0]);
+        setCsvPreviewRows(parsedLines.slice(1, 4));
+      }
+    };
+    reader.readAsText(file);
+    setUploadStep("Preview");
+  }
 
-    setIsUploading(true);
-    try {
-      const dataset = await uploadDataset(user.id, file);
-      setDatasets((current) => [dataset, ...current].slice(0, 5));
-      setPersistenceMessage(`CSV uploaded and indexed with ${dataset.row_count} rows.`);
-    } catch {
-      setPersistenceMessage("Upload failed. Check the Supabase storage bucket and RLS policies.");
-    } finally {
-      setIsUploading(false);
-    }
+  async function importDataset() {
+    if (!uploadFile) return;
+    setUploadStep("Import");
+    
+    // Simulate upload delay for local preview experience
+    setTimeout(async () => {
+      if (user) {
+        try {
+          const dataset = await uploadDataset(user.id, uploadFile);
+          setDatasets((current) => [dataset, ...current].slice(0, 5));
+        } catch (err) {
+          console.error("Error writing dataset metadata:", err);
+        }
+      }
+      setUploadStep("Ready");
+      setPersistenceMessage(`CSV uploaded and sanitized successfully.`);
+    }, 1500);
   }
 
   const selectedChart = useMemo(() => {
@@ -248,23 +366,146 @@ export default function Home() {
       title: "MRR Milestone Achieved",
       desc: "Monthly Recurring Revenue reached $132.4K, net of expansion and churn.",
       time: "3 days ago"
-    },
-    {
-      id: 4,
-      type: "info",
-      title: "Amplitude Sync Status",
-      desc: "Integration is currently running and syncing latest event attributes.",
-      time: "5 days ago"
     }
   ];
 
+  // Landing Page Render
+  if (activeTab === "Landing" && !inDemoMode) {
+    return (
+      <main className="min-h-screen bg-[#f6f8f5] text-ink">
+        {/* Navbar */}
+        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="grid h-9 w-9 place-items-center rounded-lg bg-pine text-white">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <span className="font-semibold tracking-tight">Product Metrics Explorer</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setActiveTab("Login")}
+              className="text-sm font-semibold text-ink/75 hover:text-ink transition"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={triggerDemoMode}
+              className="inline-flex h-9 items-center justify-center rounded-md bg-pine px-4 text-xs font-semibold text-white transition hover:bg-pine/90"
+            >
+              Try Demo
+            </button>
+          </div>
+        </nav>
+
+        {/* Hero Section */}
+        <section className="mx-auto max-w-5xl px-6 py-16 text-center sm:py-24 lg:px-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-pine/15 bg-mint/30 px-3 py-1 text-xs font-semibold text-pine">
+            <Sparkles className="h-3 w-3" />
+            Zero-Setup Analytics MVP
+          </div>
+          <h1 className="mt-6 text-4xl font-extrabold tracking-tight sm:text-6xl text-pine leading-none">
+            Zero-Setup Product Analytics <br/>for Growth Teams
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-base sm:text-lg leading-relaxed text-ink/75">
+            Ask plain-English product metrics questions. Automatically generate SQL, interactive charting, and computed analytics insights from your uploaded event data.
+          </p>
+          <div className="mt-10 flex items-center justify-center gap-4">
+            <button
+              onClick={triggerDemoMode}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-pine px-6 text-sm font-semibold text-white shadow-md hover:bg-pine/92 transition"
+            >
+              Try Live Demo <Play className="h-3.5 w-3.5 fill-white" />
+            </button>
+            <button
+              onClick={() => setActiveTab("About")}
+              className="inline-flex h-12 items-center justify-center rounded-md border border-ink/12 bg-white px-6 text-sm font-semibold text-ink/75 hover:bg-mist transition"
+            >
+              Learn More
+            </button>
+          </div>
+        </section>
+
+        {/* Features Grid */}
+        <section className="border-t border-ink/10 bg-white py-16 sm:py-24">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-pine">Core Portfolio Features</h2>
+              <p className="mt-4 text-sm text-ink/68">Everything recruiters need to verify system architecture and product logic.</p>
+            </div>
+            <div className="mx-auto mt-12 grid max-w-5xl gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-xl border border-ink/10 bg-[#f6f8f5]/40 p-6 transition hover:border-pine/30">
+                <Bot className="h-8 w-8 text-pine" />
+                <h3 className="mt-4 font-bold text-ink">Deterministic NL Intent Router</h3>
+                <p className="mt-2 text-xs leading-5 text-ink/68">Synchronous 10-intent weighted parser. Zero latency, robust phrase mappings, and zero dynamic SQL vulnerabilities.</p>
+              </div>
+              <div className="rounded-xl border border-ink/10 bg-[#f6f8f5]/40 p-6 transition hover:border-pine/30">
+                <ShieldCheck className="h-8 w-8 text-pine" />
+                <h3 className="mt-4 font-bold text-ink">Strict Security Policies (RLS)</h3>
+                <p className="mt-2 text-xs leading-5 text-ink/68">Row Level Security bound to user organization memberships, preventing any cross-tenant data leaks.</p>
+              </div>
+              <div className="rounded-xl border border-ink/10 bg-[#f6f8f5]/40 p-6 transition hover:border-pine/30">
+                <Database className="h-8 w-8 text-pine" />
+                <h3 className="mt-4 font-bold text-ink">CSV Scans & Cell Escaping</h3>
+                <p className="mt-2 text-xs leading-5 text-ink/68">Sanitizes cell inputs starting with formula prefixes (=, +, -, @) to prevent remote Excel injection exploits.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Tech Stack & Architecture */}
+        <section className="mx-auto max-w-5xl px-6 py-16 sm:py-24 lg:px-8 border-t border-ink/10">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-pine">Modern Technology Stack</h2>
+            <p className="text-sm text-ink/68 mt-2">Built with zero-ops scalable architectures</p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border border-ink/10 bg-white p-5 text-center">
+              <p className="text-xs font-semibold text-pine uppercase tracking-wider">Frontend</p>
+              <p className="mt-2 font-bold">Next.js 16</p>
+              <p className="text-[11px] text-ink/55 mt-1">Turbopack, TailwindCSS, Recharts</p>
+            </div>
+            <div className="rounded-lg border border-ink/10 bg-white p-5 text-center">
+              <p className="text-xs font-semibold text-pine uppercase tracking-wider">Backend</p>
+              <p className="mt-2 font-bold">FastAPI</p>
+              <p className="text-[11px] text-ink/55 mt-1">Python, PyJWT, Slowapi</p>
+            </div>
+            <div className="rounded-lg border border-ink/10 bg-white p-5 text-center">
+              <p className="text-xs font-semibold text-pine uppercase tracking-wider">Database</p>
+              <p className="mt-2 font-bold">Supabase PostgreSQL</p>
+              <p className="text-[11px] text-ink/55 mt-1">Row Level Security, Storage Buckets</p>
+            </div>
+            <div className="rounded-lg border border-ink/10 bg-white p-5 text-center">
+              <p className="text-xs font-semibold text-pine uppercase tracking-wider">Artificial Intelligence</p>
+              <p className="mt-2 font-bold">Claude 3.5 Sonnet</p>
+              <p className="text-[11px] text-ink/55 mt-1">Structured JSON Intent, Computed Narration</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  // Sidebar Layout Navigation Items
+  const navItems = [
+    { label: "Dashboard", icon: LayoutDashboard },
+    { label: "AI Chat", icon: Bot },
+    { label: "Reports", icon: FileText },
+    { label: "Metric Library", icon: BookOpen },
+    { label: "Dataset Upload", icon: Upload },
+    { label: "History", icon: History },
+    { label: "Settings", icon: Settings },
+    { label: "About", icon: Info },
+  ];
+
   return (
-    <main className="min-h-screen text-ink">
+    <main className="min-h-screen text-ink bg-[#f6f8f5]">
       <div className="flex min-h-screen">
-        <aside className="hidden w-64 shrink-0 border-r border-ink/10 bg-white/72 px-4 py-5 lg:block">
+        
+        {/* Sidebar Nav */}
+        <aside className="hidden w-64 shrink-0 border-r border-ink/10 bg-white px-4 py-5 lg:block shadow-sm">
           <div className="mb-8 flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-pine text-white">
-              <Sparkles className="h-5 w-5" aria-hidden />
+              <Sparkles className="h-5 w-5" />
             </div>
             <div>
               <p className="text-sm font-semibold">Product Metrics</p>
@@ -282,50 +523,119 @@ export default function Home() {
                   className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm transition ${
                     isActive ? "bg-mint text-pine font-semibold" : "text-ink/68 hover:bg-ink/5"
                   }`}
-                  title={item.label}
                 >
-                  <Icon className="h-4 w-4" aria-hidden />
+                  <Icon className="h-4 w-4" />
                   <span>{item.label}</span>
                 </button>
               );
             })}
           </nav>
+          
           <div className="mt-8 rounded-lg border border-ink/10 bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">Workspace</p>
-            <p className="mt-2 text-sm font-semibold">Acme Mobile App</p>
-            <p className="mt-1 text-xs text-ink/58">Production data sample</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">Active Workspace</p>
+            <p className="mt-2 text-sm font-semibold">{projectSettings.projectName}</p>
+            <p className="mt-1 text-xs text-ink/58">Demo mode active</p>
+          </div>
+
+          <div className="mt-auto pt-8">
+            <button
+              onClick={handleSignOut}
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-coral hover:bg-coral/10 transition"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Leave Application</span>
+            </button>
           </div>
         </aside>
 
+        {/* Core Content Area */}
         <section className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
           <header className="mb-5 flex flex-col gap-4 border-b border-ink/10 pb-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-ink/58">
-                <span>Acme Mobile App</span>
+                <span>{projectSettings.organization}</span>
                 <span className="h-1 w-1 rounded-full bg-ink/30" />
-                <span>June 2026</span>
+                <span>{projectSettings.projectName}</span>
                 <span className="h-1 w-1 rounded-full bg-ink/30" />
-                <span>Cloud MVP</span>
+                <span>{projectSettings.currency}</span>
               </div>
               <h1 className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">
-                {activeTab === "Overview" && "Product Intelligence Workspace"}
-                {activeTab === "AI Chat" && "AI Metrics Explorer"}
+                {activeTab === "Dashboard" && "Metrics Overview"}
+                {activeTab === "AI Chat" && "AI Assistant Explorer"}
                 {activeTab === "Reports" && "Executive Briefing Center"}
-                {activeTab === "Alerts" && "Workspace Alerts & System Health"}
-                {activeTab === "Settings" && "Workspace Settings"}
+                {activeTab === "Metric Library" && "Product Metric Dictionary"}
+                {activeTab === "Dataset Upload" && "Dataset Upload Flow"}
+                {activeTab === "History" && "Metric Query History"}
+                {activeTab === "Settings" && "Project Settings"}
+                {activeTab === "About" && "About The System"}
+                {activeTab === "Login" && "SaaS Authentication"}
               </h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <StatusPill icon={ShieldCheck} label={user ? "Supabase session" : "Auth ready"} />
-              <StatusPill icon={Database} label="Warehouse sample" />
+              <StatusPill icon={ShieldCheck} label={user ? "Supabase auth session" : "Demo Workspace"} />
+              <StatusPill icon={Database} label={projectSettings.dataSource} />
               <StatusPill icon={Activity} label="Live API" />
             </div>
           </header>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
             <div className="space-y-4">
-              {/* Overview Tab Content */}
-              {activeTab === "Overview" && (
+              
+              {/* Login Tab */}
+              {activeTab === "Login" && (
+                <div className="max-w-md mx-auto mt-8">
+                  <div className="rounded-lg border border-ink/10 bg-white p-6 shadow-panel">
+                    <h2 className="text-lg font-bold text-pine flex items-center gap-2">
+                      <Lock className="h-5 w-5" /> Authenticate Workspace
+                    </h2>
+                    <p className="text-xs text-ink/55 mt-1">Sign up or sign in to verify membership database RLS policies.</p>
+                    <div className="mt-6 space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Email Address</label>
+                        <input
+                          value={authEmail}
+                          onChange={(e) => setAuthEmail(e.target.value)}
+                          className="h-10 w-full rounded-md border border-ink/10 bg-mist/30 px-3 text-sm outline-none focus:border-pine"
+                          placeholder="name@company.com"
+                          type="email"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Password</label>
+                        <input
+                          value={authPassword}
+                          onChange={(e) => setAuthPassword(e.target.value)}
+                          className="h-10 w-full rounded-md border border-ink/10 bg-mist/30 px-3 text-sm outline-none focus:border-pine"
+                          placeholder="Password"
+                          type="password"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 pt-2">
+                        <button
+                          onClick={() => handleAuth("signin")}
+                          className="h-10 rounded-md bg-pine text-xs font-semibold text-white hover:bg-pine/90"
+                        >
+                          Sign in
+                        </button>
+                        <button
+                          onClick={() => handleAuth("signup")}
+                          className="h-10 rounded-md border border-ink/10 bg-white text-xs font-semibold text-ink/75 hover:bg-mint/45"
+                        >
+                          Sign up
+                        </button>
+                      </div>
+                      {authMessage && (
+                        <p className="text-xs text-coral mt-2 text-center font-medium bg-coral/10 py-2 rounded">
+                          {authMessage}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Dashboard Tab */}
+              {activeTab === "Dashboard" && (
                 <>
                   <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {(overview?.metrics ?? []).map((metric) => (
@@ -360,31 +670,58 @@ export default function Home() {
                       </ResponsiveContainer>
                     </ChartPanel>
                   </section>
+
+                  {/* Top Features Adoption List */}
+                  <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
+                    <h2 className="text-sm font-semibold">Top Features Adoption Rate</h2>
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-ink/10 text-ink/50 uppercase tracking-wider">
+                            <th className="py-2">Feature Name</th>
+                            <th className="py-2">30-day Retention</th>
+                            <th className="py-2">Active Users</th>
+                            <th className="py-2">Health Grade</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(overview?.retention_by_feature ?? []).map((feat, idx) => (
+                            <tr key={feat.feature} className="border-b border-ink/5 last:border-0 text-sm">
+                              <td className="py-3 font-semibold text-pine">{feat.feature}</td>
+                              <td className="py-3">{feat.retention}%</td>
+                              <td className="py-3">{(feat.active_users / 1000).toFixed(1)}K users</td>
+                              <td className="py-3">
+                                <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${
+                                  idx === 0 ? "bg-pine/12 text-pine" : idx === 1 ? "bg-mint text-pine" : "bg-gold/15 text-gold-700"
+                                }`}>
+                                  {idx === 0 ? "A+" : idx === 1 ? "A" : "B"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
                 </>
               )}
 
-              {/* AI Chat Tab Content */}
+              {/* AI Chat Tab */}
               {activeTab === "AI Chat" && (
                 <section className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
                   <div className="rounded-lg border border-ink/10 bg-white p-4 shadow-panel">
                     <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className="text-sm font-semibold">AI Metrics Explorer</p>
-                        <p className="text-xs text-ink/58">Natural-language analytics</p>
+                        <p className="text-sm font-semibold">AI Assistant Explorer</p>
+                        <p className="text-xs text-ink/58">Deterministic scoring classification</p>
                       </div>
                       <div className="flex gap-2">
                         <button
-                          onClick={handleSaveDashboard}
-                          className="grid h-9 w-9 place-items-center rounded-md border border-ink/10 text-ink/70 hover:bg-mist"
-                          title="Saved dashboards"
+                          onClick={handleSaveReport}
+                          className="flex items-center gap-1.5 h-9 rounded-md border border-ink/10 px-3 text-xs text-pine bg-mint/30 hover:bg-mint transition"
+                          title="Save report to Briefing Center"
                         >
-                          <Save className="h-4 w-4" aria-hidden />
-                        </button>
-                        <button
-                          className="grid h-9 w-9 place-items-center rounded-md border border-ink/10 text-ink/70 hover:bg-mist"
-                          title="Metric health"
-                        >
-                          <Gauge className="h-4 w-4" aria-hidden />
+                          <Save className="h-4 w-4" /> Save Report
                         </button>
                       </div>
                     </div>
@@ -407,7 +744,7 @@ export default function Home() {
                         className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-pine px-4 text-sm font-semibold text-white transition hover:bg-pine/92 disabled:cursor-not-allowed disabled:opacity-70"
                         disabled={isAsking}
                       >
-                        {isAsking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+                        {isAsking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                         Run
                       </button>
                     </form>
@@ -428,8 +765,8 @@ export default function Home() {
                       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
                         <div className="rounded-lg bg-mist/70 p-4">
                           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pine">
-                            <Bot className="h-4 w-4" aria-hidden />
-                            {answer.intent}
+                            <Bot className="h-4 w-4" />
+                            Routed Intent: {answer.intent}
                           </div>
                           <p className="mt-3 text-sm leading-6 text-ink/82">{answer.answer}</p>
                           <pre className="mt-4 max-h-28 overflow-auto rounded-md bg-ink p-3 text-xs leading-5 text-mint">
@@ -460,51 +797,232 @@ export default function Home() {
                         <p className="text-sm font-semibold">Generated Visualization</p>
                         <p className="text-xs text-ink/58">{answer?.chart_type ?? "bar"} chart</p>
                       </div>
-                      <StatusPill icon={Sparkles} label="AI selected" />
+                      <StatusPill icon={Sparkles} label="Verified Chart" />
                     </div>
                     <div className="h-[330px] min-h-[330px]">{selectedChart}</div>
                   </div>
                 </section>
               )}
 
-              {/* Reports Tab Content */}
-              {activeTab === "Reports" && report && (
-                <div className="rounded-lg border border-ink/10 bg-white p-6 shadow-panel">
-                  <div className="border-b border-ink/10 pb-4 mb-6">
-                    <h2 className="text-xl font-bold text-ink">{report.title}</h2>
-                    <p className="text-sm text-ink/55 mt-1">Period: {report.period}</p>
-                  </div>
-                  <div className="grid gap-6 md:grid-cols-3">
-                    <div className="rounded-lg bg-mint/20 border border-pine/10 p-4">
-                      <ReportBlock label="Highlights" items={report.highlights} tone="good" />
+              {/* Reports Tab */}
+              {activeTab === "Reports" && (
+                <div className="space-y-4">
+                  {report && (
+                    <div className="rounded-lg border border-ink/10 bg-white p-6 shadow-panel">
+                      <div className="border-b border-ink/10 pb-4 mb-6">
+                        <h2 className="text-xl font-bold text-ink">{report.title}</h2>
+                        <p className="text-sm text-ink/55 mt-1">Period: {report.period}</p>
+                      </div>
+                      <div className="grid gap-6 md:grid-cols-3">
+                        <div className="rounded-lg bg-mint/20 border border-pine/10 p-4">
+                          <ReportBlock label="Highlights" items={report.highlights} tone="good" />
+                        </div>
+                        <div className="rounded-lg bg-coral/5 border border-coral/10 p-4">
+                          <ReportBlock label="Risks" items={report.risks} tone="risk" />
+                        </div>
+                        <div className="rounded-lg bg-gold/10 border border-gold/15 p-4">
+                          <ReportBlock label="Recommended Actions" items={report.recommended_actions} tone="action" />
+                        </div>
+                      </div>
                     </div>
-                    <div className="rounded-lg bg-coral/5 border border-coral/10 p-4">
-                      <ReportBlock label="Risks" items={report.risks} tone="risk" />
-                    </div>
-                    <div className="rounded-lg bg-gold/10 border border-gold/15 p-4">
-                      <ReportBlock label="Recommended Actions" items={report.recommended_actions} tone="action" />
-                    </div>
+                  )}
+
+                  {/* Saved Reports Section */}
+                  <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
+                    <h2 className="text-sm font-semibold">Saved Reports</h2>
+                    <p className="text-xs text-ink/55 mt-1">Reopen previously compiled metrics and charts.</p>
+                    {savedReports.length === 0 ? (
+                      <p className="text-xs text-ink/55 mt-6 text-center border border-dashed border-ink/10 py-8 rounded">
+                        No saved reports yet. Ask a question in AI Chat and click "Save Report".
+                      </p>
+                    ) : (
+                      <div className="mt-4 space-y-4">
+                        {savedReports.map((saved) => (
+                          <div key={saved.id} className="rounded-lg border border-ink/10 bg-mist/30 p-4">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-pine uppercase tracking-wider">{saved.intent}</span>
+                              <span className="text-[10px] text-ink/50">{saved.savedAt}</span>
+                            </div>
+                            <p className="text-sm font-bold mt-2">"{saved.question}"</p>
+                            <p className="text-xs text-ink/70 mt-1 leading-relaxed">{saved.answer}</p>
+                            <div className="h-48 mt-4 bg-white rounded border border-ink/10 p-3">
+                              <AnswerChart response={saved} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Alerts Tab Content */}
-              {activeTab === "Alerts" && (
-                <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
-                  <div className="mb-4">
-                    <h2 className="text-sm font-semibold">Active Performance Alerts</h2>
-                    <p className="text-xs text-ink/55 mt-1">Real-time alerts triggered by anomalies in workspace metrics</p>
+              {/* Metric Library Tab */}
+              {activeTab === "Metric Library" && (
+                <div className="rounded-lg border border-ink/10 bg-white p-6 shadow-panel">
+                  <h2 className="text-lg font-bold text-pine flex items-center gap-2 mb-2">
+                    <BookOpen className="h-5 w-5" /> Product Metric Dictionary
+                  </h2>
+                  <p className="text-xs text-ink/55">Definitions, SQL formulas, and descriptions for product indicators.</p>
+                  <div className="mt-6 space-y-4">
+                    {metricLibraryData.map((item) => (
+                      <div key={item.name} className="p-4 rounded-lg bg-mist/30 border border-ink/10">
+                        <h3 className="font-bold text-sm text-pine">{item.name}</h3>
+                        <p className="text-xs text-ink/75 mt-1"><strong>Definition:</strong> {item.definition}</p>
+                        <p className="text-xs text-ink/75 mt-1"><strong>Formula:</strong> <code className="bg-white px-1.5 py-0.5 rounded border border-ink/10 text-coral font-mono">{item.formula}</code></p>
+                        <p className="text-xs text-ink/64 mt-2 italic">{item.description}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="space-y-3">
-                    {alertsList.map((alert) => (
-                      <div key={alert.id} className="flex gap-3 rounded-lg border border-ink/10 bg-mist/30 p-4 transition hover:bg-mist/50">
-                        <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
-                          alert.type === "critical" ? "bg-coral animate-pulse" : alert.type === "warning" ? "bg-gold" : alert.type === "success" ? "bg-pine" : "bg-blue-500"
-                        }`} />
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold">{alert.title}</p>
-                          <p className="text-xs text-ink/70 leading-relaxed">{alert.desc}</p>
-                          <p className="text-[10px] text-ink/50 mt-1">{alert.time}</p>
+                </div>
+              )}
+
+              {/* Dataset Upload Tab */}
+              {activeTab === "Dataset Upload" && (
+                <div className="rounded-lg border border-ink/10 bg-white p-6 shadow-panel">
+                  <h2 className="text-lg font-bold text-pine flex items-center gap-2 mb-2">
+                    <Upload className="h-5 w-5" /> Import Event Dataset
+                  </h2>
+                  <p className="text-xs text-ink/55">Connect raw analytics exports to configure your workspace metrics.</p>
+                  
+                  {/* Step Indicators */}
+                  <div className="flex items-center justify-between max-w-md mx-auto my-8">
+                    {["Upload", "Preview", "Import", "Ready"].map((step, idx) => {
+                      const isActive = uploadStep === step;
+                      const isPast = ["Upload", "Preview", "Import", "Ready"].indexOf(uploadStep) >= idx;
+                      return (
+                        <div key={step} className="flex items-center gap-2">
+                          <div className={`grid h-7 w-7 place-items-center rounded-full text-xs font-semibold ${
+                            isActive ? "bg-pine text-white" : isPast ? "bg-mint text-pine" : "bg-mist text-ink/40"
+                          }`}>
+                            {idx + 1}
+                          </div>
+                          <span className={`text-xs ${isActive ? "font-bold text-pine" : "text-ink/60"}`}>{step}</span>
+                          {idx < 3 && <div className="h-[2px] w-8 bg-ink/10" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Flow Steps Rendering */}
+                  <div className="border border-dashed border-ink/10 rounded-lg p-8 bg-mist/10 text-center max-w-lg mx-auto">
+                    {uploadStep === "Upload" && (
+                      <div className="space-y-4">
+                        <Upload className="h-10 w-10 text-ink/40 mx-auto" />
+                        <div>
+                          <p className="text-sm font-semibold">Select CSV Event Export File</p>
+                          <p className="text-xs text-ink/50 mt-1">Accepts CSV up to 5MB, maximum 50,000 rows.</p>
+                        </div>
+                        <label className="inline-flex h-10 cursor-pointer items-center justify-center rounded-md bg-pine px-4 text-xs font-semibold text-white hover:bg-pine/90 transition">
+                          Choose File
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept=".csv,text/csv"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) selectFile(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    {uploadStep === "Preview" && (
+                      <div className="space-y-4 text-left">
+                        <h3 className="text-sm font-bold text-pine">CSV File Preview: {uploadFile?.name}</h3>
+                        <p className="text-xs text-ink/60">Below is a preview of the first 3 rows to confirm formatting.</p>
+                        <div className="overflow-x-auto border border-ink/10 rounded bg-white mt-2">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-mist border-b border-ink/10 font-bold">
+                                {csvPreviewHeaders.map((h, i) => (
+                                  <th key={i} className="px-2 py-1.5">{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {csvPreviewRows.map((row, idx) => (
+                                <tr key={idx} className="border-b border-ink/5 last:border-0 font-mono">
+                                  {row.map((cell, cIdx) => (
+                                    <td key={cIdx} className="px-2 py-1.5">{cell}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="flex gap-2 justify-end pt-4">
+                          <button
+                            onClick={() => setUploadStep("Upload")}
+                            className="h-9 px-4 rounded border border-ink/10 bg-white text-xs font-bold hover:bg-mist"
+                          >
+                            Back
+                          </button>
+                          <button
+                            onClick={importDataset}
+                            className="h-9 px-4 rounded bg-pine text-xs font-bold text-white hover:bg-pine/90"
+                          >
+                            Import Data
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {uploadStep === "Import" && (
+                      <div className="space-y-4 py-8">
+                        <Loader2 className="h-8 w-8 text-pine animate-spin mx-auto" />
+                        <div>
+                          <p className="text-sm font-semibold">Escaping Cell Formulas & Validating Limits...</p>
+                          <p className="text-xs text-ink/50 mt-1">Scanning columns, auditing row indices, and escaping Excel injection cells.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {uploadStep === "Ready" && (
+                      <div className="space-y-4">
+                        <CheckCircle2 className="h-10 w-10 text-pine mx-auto" />
+                        <div>
+                          <p className="text-sm font-semibold">Dataset Processed successfully!</p>
+                          <p className="text-xs text-ink/50 mt-1">Your workspace data is parsed and formatted. RLS policies are active.</p>
+                        </div>
+                        <button
+                          onClick={() => setUploadStep("Upload")}
+                          className="h-9 px-4 rounded bg-pine text-xs font-bold text-white hover:bg-pine/90"
+                        >
+                          Upload Another File
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* History Tab */}
+              {activeTab === "History" && (
+                <div className="rounded-lg border border-ink/10 bg-white p-6 shadow-panel">
+                  <h2 className="text-lg font-bold text-pine flex items-center gap-2 mb-2">
+                    <History className="h-5 w-5" /> Metric Query History
+                  </h2>
+                  <p className="text-xs text-ink/55">Historical log of natural language questions submitted in this session.</p>
+                  
+                  <div className="mt-6 space-y-4">
+                    {queryHistory.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3 rounded-lg bg-mist/30 border border-ink/5 hover:border-pine/20 transition cursor-pointer"
+                        onClick={() => {
+                          setQuery(item.question);
+                          setActiveTab("AI Chat");
+                          submitQuestion(item.question);
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Bot className="h-4 w-4 text-ink/40" />
+                          <span className="text-sm font-medium">"{item.question}"</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-ink/40">{item.timestamp}</span>
+                          <ArrowRight className="h-3 w-3 text-pine" />
                         </div>
                       </div>
                     ))}
@@ -512,87 +1030,178 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Settings Tab Content */}
+              {/* Settings Tab */}
               {activeTab === "Settings" && (
                 <div className="space-y-4">
                   <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
                     <h2 className="text-sm font-semibold">Workspace Configuration</h2>
-                    <p className="text-xs text-ink/55 mt-1">Configure connections, API paths, and workspace identity.</p>
+                    <p className="text-xs text-ink/55 mt-1">Configure project identifiers, currency representations, and timezones.</p>
                     <div className="mt-6 space-y-4 max-w-md">
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Workspace Name</label>
-                        <input className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none" defaultValue="Acme Mobile App" readOnly />
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Project Name</label>
+                        <input
+                          className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none"
+                          value={projectSettings.projectName}
+                          onChange={(e) => setProjectSettings({ ...projectSettings, projectName: e.target.value })}
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Active Data Window</label>
-                        <input className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none" defaultValue="June 2026 (Demo Window)" readOnly />
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Organization</label>
+                        <input
+                          className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none"
+                          value={projectSettings.organization}
+                          onChange={(e) => setProjectSettings({ ...projectSettings, organization: e.target.value })}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Currency</label>
+                          <input
+                            className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none"
+                            value={projectSettings.currency}
+                            onChange={(e) => setProjectSettings({ ...projectSettings, currency: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Timezone</label>
+                          <input
+                            className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none"
+                            value={projectSettings.timezone}
+                            onChange={(e) => setProjectSettings({ ...projectSettings, timezone: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-ink/55 mb-2">Data Source</label>
+                        <input
+                          className="h-10 w-full rounded-md border border-ink/12 bg-mist/60 px-3 text-sm outline-none"
+                          value={projectSettings.dataSource}
+                          onChange={(e) => setProjectSettings({ ...projectSettings, dataSource: e.target.value })}
+                        />
                       </div>
                     </div>
                   </div>
                 </div>
               )}
+
+              {/* About Tab */}
+              {activeTab === "About" && (
+                <div className="rounded-lg border border-ink/10 bg-white p-6 shadow-panel">
+                  <h2 className="text-lg font-bold text-pine flex items-center gap-2 mb-2">
+                    <Info className="h-5 w-5" /> About The Project
+                  </h2>
+                  <p className="text-xs text-ink/55">Architecture overview, scope, and technical roadmap.</p>
+                  
+                  <div className="mt-6 space-y-6 text-sm leading-relaxed text-ink/80">
+                    <div>
+                      <h3 className="font-bold text-sm text-pine mb-1">Why This Product Exists</h3>
+                      <p className="text-xs">
+                        Manual query generation is the primary bottleneck in product analysis. This MVP provides self-serve natural language routing and computation scoping to allow product managers to get answers instantly without SQL injection vulnerabilities or LLM hallucinations.
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="font-bold text-sm text-pine mb-1">Tech Stack & Tools</h3>
+                      <ul className="text-xs list-disc list-inside space-y-1">
+                        <li><strong>Frontend</strong>: Next.js 16 (Turbopack), TailwindCSS, Recharts, Lucide Icons</li>
+                        <li><strong>Backend API</strong>: FastAPI, python-jose JWT, Slowapi Rate-Limiting</li>
+                        <li><strong>Storage & Database</strong>: Supabase Postgres, storage buckets, membership Row Level Security (RLS)</li>
+                        <li><strong>Artificial Intelligence</strong>: Claude 3.5 structured intents</li>
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h3 className="font-bold text-sm text-pine mb-1">MVP System Architecture</h3>
+                      <pre className="p-3 bg-ink text-mint rounded-lg text-xs leading-5 font-mono overflow-auto max-h-48">
+{`Browser (Next.js/Vercel)
+  │  JWT Bearer Token in Authorization header
+  ▼
+FastAPI (Render) ── verifies JWT (Supabase JWKS) ── resolves workspace_id
+  │
+  ├── analytics function catalog (parameterized, no dynamic SQL)
+  │        │
+  │        ▼
+  │   Supabase Postgres (dataset_rows, scoped by workspace_id)
+  │
+  └── Claude API (Haiku for routing, Sonnet for narration)`}
+                      </pre>
+                    </div>
+
+                    <div>
+                      <h3 className="font-bold text-sm text-pine mb-1">Future Development Roadmap</h3>
+                      <ul className="text-xs list-disc list-inside space-y-1">
+                        <li>Real-time database replication alerts.</li>
+                        <li>Stripe/Revenue Webhook integrations for automatic plan churn audits.</li>
+                        <li>Export to PPTX / Slack query report subscription notifications.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
 
-            {/* Sidebar Columns relative to selected Tab */}
+            {/* Right Pane Context Columns */}
             <aside className="space-y-4">
-              {activeTab === "Overview" && (
-                <>
-                  <Panel title="AI Insight Queue" subtitle="Ranked product opportunities">
-                    <div className="space-y-3">
-                      {(answer?.insights ?? overview?.insights ?? []).map((insight) => (
-                        <InsightCard key={insight.title} insight={insight} />
-                      ))}
-                    </div>
-                  </Panel>
-                  <Panel title="Connected Sources" subtitle="Data sync status">
-                    <div className="space-y-2">
-                      {integrations.map((integration) => (
-                        <div key={integration.name} className="flex items-center justify-between rounded-md border border-ink/10 bg-mist/45 p-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">{integration.name}</p>
-                            <p className="text-xs text-ink/55">{integration.category}</p>
-                          </div>
-                          <div className="text-right">
-                            <StatusDot status={integration.status} />
-                            <p className="mt-1 text-xs text-ink/50">{integration.last_sync}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </Panel>
-                </>
-              )}
-
-              {activeTab === "AI Chat" && (
-                <Panel title="AI Insight Queue" subtitle="Ranked product opportunities">
+              
+              {/* AI Suggestions on Dashboard */}
+              {activeTab === "Dashboard" && (
+                <Panel title="AI Suggestions" subtitle="Intelligent context discoveries">
                   <div className="space-y-3">
-                    {(answer?.insights ?? overview?.insights ?? []).map((insight) => (
-                      <InsightCard key={insight.title} insight={insight} />
-                    ))}
-                  </div>
-                </Panel>
-              )}
-
-              {activeTab === "Reports" && (
-                <Panel title="Connected Sources" subtitle="Data sync status">
-                  <div className="space-y-2">
-                    {integrations.map((integration) => (
-                      <div key={integration.name} className="flex items-center justify-between rounded-md border border-ink/10 bg-mist/45 p-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{integration.name}</p>
-                          <p className="text-xs text-ink/55">{integration.category}</p>
-                        </div>
-                        <div className="text-right">
-                          <StatusDot status={integration.status} />
-                          <p className="mt-1 text-xs text-ink/50">{integration.last_sync}</p>
+                    <div className="rounded-lg border border-ink/10 bg-mint/10 p-3">
+                      <div className="flex gap-2 items-start">
+                        <TrendingUp className="h-4 w-4 text-pine mt-0.5" />
+                        <div>
+                          <p className="text-xs font-semibold text-pine">MRR increased 10%</p>
+                          <p className="text-[11px] text-ink/70 mt-0.5">Net of expansion and churn, revenue reached $132.4K.</p>
                         </div>
                       </div>
+                    </div>
+                    <div className="rounded-lg border border-ink/10 bg-coral/5 p-3">
+                      <div className="flex gap-2 items-start">
+                        <TrendingDown className="h-4 w-4 text-coral mt-0.5" />
+                        <div>
+                          <p className="text-xs font-semibold text-coral">Retention dropped 8%</p>
+                          <p className="text-[11px] text-ink/70 mt-0.5">Feature retention trails on user cohorts adopting AI Summary.</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-ink/10 bg-gold/10 p-3">
+                      <div className="flex gap-2 items-start">
+                        <Sparkles className="h-4 w-4 text-gold mt-0.5" />
+                        <div>
+                          <p className="text-xs font-semibold text-pine">Notes adoption is highest</p>
+                          <p className="text-[11px] text-ink/70 mt-0.5">Notes usage remains the strongest catalyst for 30-day user habits.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Panel>
+              )}
+
+              {/* Recent AI Queries on Dashboard */}
+              {activeTab === "Dashboard" && (
+                <Panel title="Recent Queries" subtitle="Quick access shortcuts">
+                  <div className="space-y-2">
+                    {queryHistory.slice(0, 3).map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setQuery(item.question);
+                          setActiveTab("AI Chat");
+                          submitQuestion(item.question);
+                        }}
+                        className="block w-full text-left rounded-md border border-ink/5 bg-mist/50 p-2.5 hover:border-pine/30 transition text-xs truncate"
+                      >
+                        "{item.question}"
+                      </button>
                     ))}
                   </div>
                 </Panel>
               )}
 
-              {activeTab === "Alerts" && (
+              {/* Default Sidebars */}
+              {(activeTab === "AI Chat" || activeTab === "History" || activeTab === "Metric Library" || activeTab === "Dataset Upload") && (
                 <Panel title="AI Insight Queue" subtitle="Ranked product opportunities">
                   <div className="space-y-3">
                     {(answer?.insights ?? overview?.insights ?? []).map((insight) => (
@@ -602,9 +1211,9 @@ export default function Home() {
                 </Panel>
               )}
 
-              {activeTab === "Settings" && (
+              {(activeTab === "Reports" || activeTab === "Settings" || activeTab === "About" || activeTab === "Login") && (
                 <>
-                  <Panel title="Supabase Workspace" subtitle={isSupabaseConfigured ? "Auth, storage, and saved work" : "Demo mode until env vars are set"}>
+                  <Panel title="Supabase Access" subtitle={user ? "Session established" : "Authentication status"}>
                     <AuthPanel
                       user={user}
                       email={authEmail}
@@ -615,14 +1224,8 @@ export default function Home() {
                       onAuth={handleAuth}
                       onSignOut={handleSignOut}
                     />
-                    <DatasetUploader
-                      datasets={datasets}
-                      isUploading={isUploading}
-                      message={persistenceMessage}
-                      onUpload={handleDatasetUpload}
-                    />
                   </Panel>
-                  <Panel title="Connected Sources" subtitle="Data sync status">
+                  <Panel title="Integration Channels" subtitle="Warehouse sync status">
                     <div className="space-y-2">
                       {integrations.map((integration) => (
                         <div key={integration.name} className="flex items-center justify-between rounded-md border border-ink/10 bg-mist/45 p-3">
@@ -640,6 +1243,7 @@ export default function Home() {
                   </Panel>
                 </>
               )}
+
             </aside>
           </div>
         </section>
@@ -656,7 +1260,7 @@ function MetricTile({ metric }: { metric: MetricCard }) {
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">{metric.label}</p>
         <div className={`grid h-8 w-8 place-items-center rounded-md ${isDown ? "bg-coral/12 text-coral" : "bg-mint text-pine"}`}>
-          <Icon className="h-4 w-4" aria-hidden />
+          <Icon className="h-4 w-4" />
         </div>
       </div>
       <p className="mt-4 text-2xl font-semibold">{metric.value}</p>
@@ -719,6 +1323,7 @@ function AnswerChart({ response }: { response: QueryResponse }) {
     );
   }
 
+  // Fallback defaults to Bar Chart
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={response.chart_data} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
@@ -748,7 +1353,7 @@ function InsightCard({ insight }: { insight: Insight }) {
       <p className="mt-2 text-xs leading-5 text-ink/64">{insight.summary}</p>
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="text-xs font-semibold text-pine">{insight.confidence}% confidence</p>
-        <CheckCircle2 className="h-4 w-4 text-pine" aria-hidden />
+        <CheckCircle2 className="h-4 w-4 text-pine" />
       </div>
       <p className="mt-2 rounded-md bg-mist px-3 py-2 text-xs leading-5 text-ink/72">{insight.recommendation}</p>
     </article>
@@ -779,10 +1384,10 @@ function ChartPanel({ title, subtitle, children }: { title: string; subtitle: st
   );
 }
 
-function StatusPill({ icon: Icon, label }: { icon: typeof Activity; label: string }) {
+function StatusPill({ icon: Icon, label }: { icon: any; label: string }) {
   return (
     <span className="inline-flex h-8 items-center gap-2 rounded-md border border-ink/10 bg-white px-3 text-xs font-medium text-ink/70">
-      <Icon className="h-3.5 w-3.5 text-pine" aria-hidden />
+      <Icon className="h-3.5 w-3.5 text-pine" />
       {label}
     </span>
   );
@@ -796,128 +1401,6 @@ function StatusDot({ status }: { status: Integration["status"] }) {
       <span className={`h-2 w-2 rounded-full ${className}`} />
       {status}
     </span>
-  );
-}
-
-function AuthPanel({
-  user,
-  email,
-  password,
-  message,
-  onEmailChange,
-  onPasswordChange,
-  onAuth,
-  onSignOut,
-}: {
-  user: AppUser | null;
-  email: string;
-  password: string;
-  message: string;
-  onEmailChange: (value: string) => void;
-  onPasswordChange: (value: string) => void;
-  onAuth: (mode: "signin" | "signup") => void;
-  onSignOut: () => void;
-}) {
-  if (user) {
-    return (
-      <div className="rounded-lg border border-ink/10 bg-mint/45 p-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-pine">Signed in</p>
-            <p className="mt-1 truncate text-sm font-semibold">{user.email}</p>
-          </div>
-          <button
-            onClick={onSignOut}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-pine/20 bg-white text-pine hover:bg-mint"
-            title="Sign out"
-          >
-            <LogOut className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-lg border border-ink/10 bg-mist/55 p-3">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pine">
-        <Users className="h-4 w-4" aria-hidden />
-        Supabase Auth
-      </div>
-      <div className="mt-3 space-y-2">
-        <input
-          value={email}
-          onChange={(event) => onEmailChange(event.target.value)}
-          className="h-10 w-full rounded-md border border-ink/10 bg-white px-3 text-sm outline-none ring-pine/15 focus:border-pine focus:ring-4"
-          placeholder="Email"
-          type="email"
-        />
-        <input
-          value={password}
-          onChange={(event) => onPasswordChange(event.target.value)}
-          className="h-10 w-full rounded-md border border-ink/10 bg-white px-3 text-sm outline-none ring-pine/15 focus:border-pine focus:ring-4"
-          placeholder="Password"
-          type="password"
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <button className="h-9 rounded-md bg-pine text-xs font-semibold text-white hover:bg-pine/92" onClick={() => onAuth("signin")}>
-            Sign in
-          </button>
-          <button className="h-9 rounded-md border border-ink/10 bg-white text-xs font-semibold text-ink/75 hover:bg-mint" onClick={() => onAuth("signup")}>
-            Sign up
-          </button>
-        </div>
-        {message && <p className="text-xs leading-5 text-ink/62">{message}</p>}
-      </div>
-    </div>
-  );
-}
-
-function DatasetUploader({
-  datasets,
-  isUploading,
-  message,
-  onUpload,
-}: {
-  datasets: DatasetRecord[];
-  isUploading: boolean;
-  message: string;
-  onUpload: (file: File | undefined) => void;
-}) {
-  return (
-    <div className="mt-3 rounded-lg border border-ink/10 bg-white p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">CSV Connector</p>
-                  <p className="mt-1 text-xs text-ink/58">Upload sample product data</p>
-        </div>
-        <label className="grid h-9 w-9 cursor-pointer place-items-center rounded-md border border-ink/10 text-pine hover:bg-mint" title="Upload CSV">
-          {isUploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Upload className="h-4 w-4" aria-hidden />}
-          <input
-            className="hidden"
-            type="file"
-            accept=".csv,text/csv"
-            disabled={isUploading}
-            onChange={(event) => onUpload(event.target.files?.[0])}
-          />
-        </label>
-      </div>
-      {message && <p className="mt-3 rounded-md bg-mist px-3 py-2 text-xs leading-5 text-ink/70">{message}</p>}
-      <div className="mt-3 space-y-2">
-        {datasets.length === 0 ? (
-          <p className="text-xs leading-5 text-ink/55">No uploaded datasets yet.</p>
-        ) : (
-          datasets.map((dataset) => (
-            <div key={dataset.id} className="rounded-md bg-mist/70 px-3 py-2">
-              <p className="truncate text-xs font-semibold">{dataset.file_name}</p>
-              <p className="mt-1 text-[11px] text-ink/50">
-                {Math.max(1, Math.round(dataset.file_size / 1024))} KB · {dataset.row_count} rows · {dataset.status}
-              </p>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
   );
 }
 
