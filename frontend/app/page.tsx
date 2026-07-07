@@ -1404,6 +1404,80 @@ function StatusDot({ status }: { status: Integration["status"] }) {
   );
 }
 
+function AuthPanel({
+  user,
+  email,
+  password,
+  message,
+  onEmailChange,
+  onPasswordChange,
+  onAuth,
+  onSignOut,
+}: {
+  user: AppUser | null;
+  email: string;
+  password: string;
+  message: string;
+  onEmailChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onAuth: (mode: "signin" | "signup") => void;
+  onSignOut: () => void;
+}) {
+  if (user) {
+    return (
+      <div className="rounded-lg border border-ink/10 bg-mint/45 p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-pine">Signed in</p>
+            <p className="mt-1 truncate text-sm font-semibold">{user.email}</p>
+          </div>
+          <button
+            onClick={onSignOut}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-pine/20 bg-white text-pine hover:bg-mint"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-ink/10 bg-mist/55 p-3">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pine">
+        <Users className="h-4 w-4" aria-hidden />
+        Supabase Auth
+      </div>
+      <div className="mt-3 space-y-2">
+        <input
+          value={email}
+          onChange={(event) => onEmailChange(event.target.value)}
+          className="h-10 w-full rounded-md border border-ink/10 bg-white px-3 text-sm outline-none ring-pine/15 focus:border-pine focus:ring-4"
+          placeholder="Email"
+          type="email"
+        />
+        <input
+          value={password}
+          onChange={(event) => onPasswordChange(event.target.value)}
+          className="h-10 w-full rounded-md border border-ink/10 bg-white px-3 text-sm outline-none ring-pine/15 focus:border-pine focus:ring-4"
+          placeholder="Password"
+          type="password"
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <button className="h-9 rounded-md bg-pine text-xs font-semibold text-white hover:bg-pine/92" onClick={() => onAuth("signin")}>
+            Sign in
+          </button>
+          <button className="h-9 rounded-md border border-ink/10 bg-white text-xs font-semibold text-ink/75 hover:bg-mint" onClick={() => onAuth("signup")}>
+            Sign up
+          </button>
+        </div>
+        {message && <p className="text-xs leading-5 text-ink/62">{message}</p>}
+      </div>
+    </div>
+  );
+}
+
 function ReportBlock({ label, items, tone }: { label: string; items: string[]; tone: "good" | "risk" | "action" }) {
   const marker = tone === "good" ? "bg-pine" : tone === "risk" ? "bg-coral" : "bg-gold";
   return (
