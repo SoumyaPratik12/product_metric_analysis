@@ -130,20 +130,36 @@ export default function Home() {
     if (!trimmed) return;
     setIsAsking(true);
     setQuery(trimmed);
-    const datasetResponse = user ? await analyzeLatestDataset(user.id, trimmed) : null;
-    const response = datasetResponse ?? (await askQuestion(trimmed));
-    setAnswer(response);
-    if (user) {
-      try {
-        await saveConversation(user.id, response);
-        setPersistenceMessage(
-          datasetResponse ? "Answered from uploaded CSV and saved to Supabase." : "Conversation saved to Supabase.",
-        );
-      } catch {
-        setPersistenceMessage("Answer generated, but Supabase could not save the conversation.");
+    try {
+      let datasetResponse = null;
+      if (user) {
+        try {
+          datasetResponse = await analyzeLatestDataset(user.id, trimmed);
+        } catch (err) {
+          console.error("Error analyzing dataset via Supabase:", err);
+          setPersistenceMessage("Supabase query failed. Falling back to default metrics API.");
+        }
       }
+
+      const response = datasetResponse ?? (await askQuestion(trimmed));
+      setAnswer(response);
+
+      if (user) {
+        try {
+          await saveConversation(user.id, response);
+          setPersistenceMessage(
+            datasetResponse ? "Answered from uploaded CSV and saved to Supabase." : "Conversation saved to Supabase.",
+          );
+        } catch {
+          setPersistenceMessage("Answer generated, but Supabase could not save the conversation.");
+        }
+      }
+    } catch (err) {
+      console.error("Error submitting question:", err);
+      setPersistenceMessage("An error occurred while running the query. Please try again.");
+    } finally {
+      setIsAsking(false);
     }
-    setIsAsking(false);
   }
 
   async function handleAuth(mode: "signin" | "signup") {
