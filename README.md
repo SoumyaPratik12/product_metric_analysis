@@ -1,83 +1,126 @@
-# Product Metrics Explorer MVP
+# StreamFlow Product Metrics Explorer (SaaS MVP)
 
-AI-powered product analytics without SQL. This repository is structured for cloud-first development and deployment from a browser-based workflow such as GitHub Codespaces.
+An AI-powered product analytics dashboard and NL query interface built for the fictional music streaming SaaS application, **StreamFlow** (125,000 active users, $185K MRR, 81% 30-day retention).
 
-## MVP Scope
+This monorepo is designed to demonstrate modern web engineering, clean security practices, and deterministic natural-language query routing.
 
-- Conversational analytics workspace for product questions
-- Supabase-ready authentication, user persistence, and CSV upload storage
-- CSV row indexing for uploaded datasets, so signed-in users can ask questions against their own uploaded file
-- KPI overview, retention, funnel, engagement, revenue, and health metrics
-- AI-style insight generation with chart recommendations and next steps
-- Executive summary endpoint and UI preview
-- Integration status surface for common data sources
-- Cloud-ready Dockerfiles, Render blueprint, and GitHub Actions CI
+---
 
-## Repository
+## 🗺️ System Design & Architectural Decisions
 
+### 1. Why Next.js 16?
+- **Turbopack & Compilation**: Blazing fast hot-reloading and static page optimization.
+- **Client-Side Fallbacks**: Integrates a synced offline fallback engine (`fallback.ts`) so recruiters can test the application immediately (Demo Mode) with zero API cold-starts or database configurations.
+
+### 2. Why FastAPI (Python)?
+- **Fast Execution**: Extremely low-latency request processing (p95 < 6s).
+- **Type Safety**: Enforced through Pydantic schemas, ensuring clean API contracts between frontend requests and backend processors.
+
+### 3. Why Deterministic NLP scoring (Zero-Cost Intent Router)?
+- **Hallucination Prevention**: Traditional LLM SQL generation is prone to hallucinating table schemas and executing wrong queries. Our weighted scoring router classifies questions into a fixed catalog of 10 core analytics functions.
+- **Vulnerability Block**: Guarantees zero SQL injection vectors, as user-provided text is never directly concatenated into SQL strings.
+- **Cost Efficiency**: Zero LLM token charges for intent classification, making the MVP cost-ceiling near zero.
+
+### 4. Why Supabase PostgreSQL & storage?
+- **Row Level Security (RLS)**: Membership-based policies prevent tenant isolation leaks. Users can only access project data where they belong to the respective organization.
+- **Storage Buckets**: Safe private CSV uploads with size and row limits, scanned for formula execution vectors.
+
+---
+
+## 🛠️ Technology Stack
+* **Frontend**: Next.js 16 (App Router), TailwindCSS, Recharts, Lucide Icons
+* **Backend**: FastAPI, PyJWT, Slowapi (Token-bucket rate limiter)
+* **Database**: Supabase Postgres, Storage Buckets, PostgreSQL Row Level Security (RLS)
+
+---
+
+## 📁 Project Structure
 ```text
-frontend/   Next.js, React, TypeScript, Tailwind, Recharts
-backend/    FastAPI analytics API with deterministic MVP insight engine
-supabase/   Database schema, RLS policies, and storage bucket setup
-infra/      Cloud deployment notes
-.github/    CI workflow
+frontend/     Next.js 16 client, types, fallback router, and CSS tokens
+backend/      FastAPI server, auth dependencies, nlp scoring router, and mock analytics
+supabase/     Database schema.sql with membership RLS policies and indexes
 ```
 
-## Online-Only Build Flow
+---
 
-1. Push this repository to GitHub.
-2. Open it in GitHub Codespaces.
-3. Create the cloud services from `render.yaml`, or connect the frontend to Vercel and backend to Render/Railway/Fly.io.
-4. Create a Supabase project and run `supabase/schema.sql` in the Supabase SQL editor.
-5. Set `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY` on the frontend.
-6. Set `CORS_ORIGINS`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` on the backend.
-7. Run CI from GitHub Actions and deploy from your cloud provider dashboard.
+## 🔒 Security Hardening (P0 & P1)
 
-No local IDE is required; the local machine is only a browser.
+1. **Membership-Based RLS**: Policies in `supabase/schema.sql` check organization memberships rather than raw `auth.uid() = user_id`, securing datasets, rows, conversations, and dashboards.
+2. **Backend JWT Verification**: Decodes Supabase JWT tokens via `backend/app/auth.py` and resolves workspace identity server-side.
+3. **API Rate Limiting**: Intercepts abuse via `slowapi` throttling (`/api/query` at 20 req/min, `/datasets/upload` at 10 req/min).
+4. **Formula Injection Sanitizer**: Escapes cell values starting with `=, +, -, @` by prefixing a single quote (`'`) to block spreadsheet formula attacks.
+5. **CSV Boundary Scans**: Rejects uploads exceeding 5MB or containing more than 50,000 rows.
 
-## Cloud Environment Variables
+---
 
-Frontend:
+## 📊 Database Schema & ER Design
 
-- `NEXT_PUBLIC_API_URL`: public URL of the deployed FastAPI backend
-- `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase anon public key
+```mermaid
+erDiagram
+    profiles ||--o| organizations : owns
+    profiles ||--o{ organization_members : member
+    organizations ||--o{ organization_members : contains
+    organizations ||--o{ projects : owns
+    projects ||--o{ datasets : contains
+    projects ||--o{ ai_conversations : contains
+    projects ||--o{ saved_dashboards : contains
+    datasets ||--o{ dataset_rows : has
+```
 
-Backend:
+### Tables
+* **`profiles`**: User identity data mapped from `auth.users`.
+* **`organizations`**: Workspace tenants.
+* **`organization_members`**: Organization roles (`owner`, `member`) mapping user access.
+* **`projects`**: Sub-spaces owned by organizations.
+* **`datasets`**: CSV metadata, size, status, and columns.
+* **`dataset_rows`**: Parsed CSV cells scoped to `dataset_id`.
+* **`ai_conversations`**: Historical questions and answers.
 
-- `CORS_ORIGINS`: comma-separated allowed frontend origins
-- `APP_ENV`: `production`, `staging`, or `development`
-- `SUPABASE_URL`: Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY`: server-only Supabase key for future background jobs and secure imports
+---
 
-## Supabase Setup
+## 🔌 API Documentation Contract
 
-1. Create a Supabase project.
-2. Open SQL Editor and run `supabase/schema.sql`.
-3. Confirm the private `product-datasets` storage bucket exists.
-4. In Authentication settings, add your deployed frontend URL to allowed redirect URLs.
-5. Add the frontend env vars from `frontend/.env.example` to your host.
+### 1. Health Probe
+* **Endpoint**: `GET /health`
+* **Auth**: None
+* **Response**: `{"status": "ok", "service": "product-metrics-api"}`
 
-The app runs in demo mode when Supabase env vars are missing, then enables login, saved conversations, saved dashboards, and CSV uploads when they are configured.
+### 2. Overview Metrics
+* **Endpoint**: `GET /api/overview`
+* **Headers**: `Authorization: Bearer <JWT>`
+* **Response**: `OverviewResponse` containing KPI cards, retention features, and engagement trends.
 
-## Supabase Migrations
+### 3. AI Query Assistant
+* **Endpoint**: `POST /api/query`
+* **Headers**: `Authorization: Bearer <JWT>`
+* **Body**: `{"question": "What's our MRR?"}`
+* **Rate Limit**: 20 req/min
+* **Response**: `QueryResponse` (intent, summary, chart data, insights, follow-ups).
 
-If the base schema has already been run, apply newer migrations from `supabase/migrations/`.
+### 4. CSV Import
+* **Endpoint**: `POST /datasets/upload`
+* **Headers**: `Authorization: Bearer <JWT>`
+* **Body**: `multipart/form-data` file payload (max 5MB, 50,000 rows)
+* **Rate Limit**: 10 req/min
+* **Response**: `UploadResponse` showing columns parsed and sanitization status.
 
-Current migration:
+---
 
-- `001_dataset_rows.sql`: adds `dataset_rows`, dataset row counts, dataset column metadata, and RLS policies for indexed CSV data.
+## 🚀 Running Verification Tests
 
-After this migration, CSV uploads are stored in Supabase Storage and indexed into `dataset_rows`. When a signed-in user asks a question, the frontend first tries to answer from the latest indexed CSV, then falls back to the sample analytics API.
+### Unit & Integration Test Suites
+To spin up the FastAPI server, test JWT authentication blocking, rate limiting, and CSV cell sanitization:
+```bash
+cd backend
+pip install -r requirements.txt
+python test_router.py
+python test_api.py
+```
 
-## API
-
-- `GET /health`
-- `GET /api/overview`
-- `POST /api/query`
-- `GET /api/reports/executive`
-- `GET /api/integrations`
-
-## Local Preview
-
-Local preview is optional and only for verification. The intended path is GitHub Codespaces plus hosted services.
+### Next.js Production Build Validation
+To verify static page generation and typecheck validation:
+```bash
+cd frontend
+npm install
+npm run build
+```

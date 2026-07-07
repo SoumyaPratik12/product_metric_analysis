@@ -6,34 +6,34 @@ from app.models import Insight
 
 
 RETENTION_BY_FEATURE = [
-    {"feature": "Notes", "retention": 81, "active_users": 18420},
-    {"feature": "AI Search", "retention": 74, "active_users": 14380},
-    {"feature": "OCR Scanner", "retention": 69, "active_users": 11220},
-    {"feature": "AI Summary", "retention": 55, "active_users": 16740},
+    {"feature": "Playlists", "retention": 81, "active_users": 42120},
+    {"feature": "Smart Search", "retention": 74, "active_users": 35380},
+    {"feature": "Offline Sync", "retention": 69, "active_users": 28220},
+    {"feature": "Lyrics Translation", "retention": 55, "active_users": 36740},
 ]
 
 FUNNEL = [
-    {"stage": "Signup", "users": 52000, "conversion": 100},
-    {"stage": "Onboarding", "users": 42120, "conversion": 81},
-    {"stage": "First Insight", "users": 30160, "conversion": 58},
-    {"stage": "Dashboard Saved", "users": 19480, "conversion": 37},
-    {"stage": "Invite Sent", "users": 12380, "conversion": 24},
+    {"stage": "Signup", "users": 125000, "conversion": 100},
+    {"stage": "Onboarding", "users": 101250, "conversion": 81},
+    {"stage": "Play Song", "users": 72500, "conversion": 58},
+    {"stage": "Create Playlist", "users": 46250, "conversion": 37},
+    {"stage": "Share Playlist", "users": 30000, "conversion": 24},
 ]
 
 ENGAGEMENT_TREND = [
-    {"date": "Jun 01", "dau": 18920, "sessions": 49300, "avg_minutes": 12.6},
-    {"date": "Jun 08", "dau": 20180, "sessions": 52840, "avg_minutes": 13.2},
-    {"date": "Jun 15", "dau": 19640, "sessions": 50120, "avg_minutes": 12.8},
-    {"date": "Jun 22", "dau": 18220, "sessions": 46380, "avg_minutes": 11.4},
-    {"date": "Jun 29", "dau": 17680, "sessions": 44890, "avg_minutes": 10.9},
+    {"date": "Jun 01", "dau": 24920, "sessions": 49300, "avg_minutes": 12.6},
+    {"date": "Jun 08", "dau": 26180, "sessions": 52840, "avg_minutes": 13.2},
+    {"date": "Jun 15", "dau": 25640, "sessions": 50120, "avg_minutes": 12.8},
+    {"date": "Jun 22", "dau": 24220, "sessions": 46380, "avg_minutes": 11.4},
+    {"date": "Jun 29", "dau": 23680, "sessions": 44890, "avg_minutes": 10.9},
 ]
 
 REVENUE_TREND = [
-    {"date": "Feb", "mrr": 82000, "arpu": 18.2, "churn": 4.8},
-    {"date": "Mar", "mrr": 91500, "arpu": 18.9, "churn": 4.4},
-    {"date": "Apr", "mrr": 104200, "arpu": 19.6, "churn": 4.1},
-    {"date": "May", "mrr": 118900, "arpu": 20.4, "churn": 3.8},
-    {"date": "Jun", "mrr": 132400, "arpu": 21.1, "churn": 3.6},
+    {"date": "Feb", "mrr": 125000, "arpu": 18.2, "churn": 4.8},
+    {"date": "Mar", "mrr": 142000, "arpu": 18.9, "churn": 4.4},
+    {"date": "Apr", "mrr": 156000, "arpu": 19.6, "churn": 4.1},
+    {"date": "May", "mrr": 172000, "arpu": 20.4, "churn": 3.8},
+    {"date": "Jun", "mrr": 185000, "arpu": 21.1, "churn": 3.6},
 ]
 
 
@@ -81,24 +81,24 @@ def overview_metrics() -> list[dict[str, str]]:
 def base_insights() -> list[Insight]:
     return [
         Insight(
-            title="Notes drives the strongest long-term retention",
-            summary="Users who adopt Notes keep returning at an 81% 30-day retention rate, making it the highest-retention feature in the sample product dataset.",
+            title="Playlists drive the strongest long-term retention",
+            summary="Users who adopt Playlists keep returning at an 81% Day 30 retention rate, making it the highest-retention feature in the StreamFlow metrics catalogue.",
             confidence=92,
-            recommendation="Move Notes earlier in onboarding and use it as the default success moment for new users.",
+            recommendation="Prompt Free tier users to create their first custom playlist during their first active session.",
             priority="High",
         ),
         Insight(
             title="Engagement softened after June 15",
-            summary="DAU and average session minutes both declined for two consecutive weekly periods, suggesting a broad usage issue rather than a single-channel acquisition problem.",
+            summary="DAU and average session minutes both declined for two consecutive weekly periods, suggesting a possible onboarding drop-off after onboarding step 3.",
             confidence=84,
-            recommendation="Compare app version, login latency, and notification CTR for users active after June 15.",
+            recommendation="Review login latency and push notification CTR values for updates rolled out after June 15.",
             priority="High",
         ),
         Insight(
-            title="AI Summary has adoption but weak repeat usage",
-            summary="AI Summary has a large active-user base but only 55% retention, so the feature is bringing users in without creating a durable habit.",
+            title="Lyrics Translation has adoption but weak repeat usage",
+            summary="Lyrics Translation has a large active-user base but only 55% Day 30 retention, so users try it but don't establish a habit.",
             confidence=78,
-            recommendation="Add quality feedback, examples, and reminder prompts after summary generation.",
+            recommendation="Add quality improvements and contextual translation recommendations inside song view portals.",
             priority="Medium",
         ),
     ]
@@ -167,7 +167,7 @@ def answer_question(question: str) -> dict:
         top = max(RETENTION_BY_FEATURE, key=lambda item: item["retention"])
         return {
             "intent": "Retention Analysis",
-            "answer": f"{top['feature']} has the highest 30-day retention at {top['retention']}%. The next best feature is AI Search at 74%.",
+            "answer": f"{top['feature']} has the highest 30-day retention at {top['retention']}%. The next best feature is Smart Search at 74%.",
             "chart_type": "bar",
             "chart_data": RETENTION_BY_FEATURE,
             "generated_query": "SELECT feature, retention_30d, active_users FROM feature_retention ORDER BY retention_30d DESC;",
@@ -222,7 +222,7 @@ def answer_question(question: str) -> dict:
     if intent == "dauTrend":
         return {
             "intent": "DAU Trend",
-            "answer": "Daily Active Users peaked at 20.1K on June 08 before decreasing to 17.6K by the end of the month.",
+            "answer": "Daily Active Users peaked at 26.1K on June 08 before decreasing to 23.6K by the end of the month.",
             "chart_type": "line",
             "chart_data": [{"date": item["date"], "dau": item["dau"]} for item in ENGAGEMENT_TREND],
             "generated_query": "SELECT date, dau FROM daily_active_users ORDER BY date ASC LIMIT 60;",
@@ -243,10 +243,10 @@ def answer_question(question: str) -> dict:
             "generated_query": "SELECT stage, users, conversion_rate FROM activation_funnel ORDER BY stage_order ASC;",
             "insights": [
                 Insight(
-                    title="First Insight is the activation bottleneck",
-                    summary="The product loses 23 percentage points between onboarding and first insight generation.",
+                    title="First Song Play is the activation bottleneck",
+                    summary="The product loses 23 percentage points between onboarding completion and first song play.",
                     confidence=86,
-                    recommendation="Shorten the first-query path and add templates for common product analytics questions.",
+                    recommendation="Shorten onboarding screens and offer a popular 'quick-play' station on first-run.",
                     priority="High",
                 )
             ],
@@ -288,7 +288,7 @@ def answer_question(question: str) -> dict:
     if intent == "revenueMetrics":
         return {
             "intent": "Revenue Analytics",
-            "answer": "MRR grew to $132.4K in June while churn improved to 3.6%, indicating expansion is outpacing customer loss.",
+            "answer": "MRR grew to $185.0K in June while churn improved to 3.6%, indicating expansion is outpacing customer loss.",
             "chart_type": "line",
             "chart_data": REVENUE_TREND,
             "generated_query": "SELECT month, mrr, arpu, churn_rate FROM revenue_metrics ORDER BY month ASC;",
@@ -339,51 +339,51 @@ def answer_question(question: str) -> dict:
 
     if intent == "featureAdoption":
         adoption_data = [
-            {"feature": "Notes", "adoption": 76},
-            {"feature": "AI Search", "adoption": 68},
-            {"feature": "OCR Scanner", "adoption": 54},
-            {"feature": "AI Summary", "adoption": 42}
+            {"feature": "Playlists", "adoption": 76},
+            {"feature": "Smart Search", "adoption": 68},
+            {"feature": "Offline Sync", "adoption": 54},
+            {"feature": "Lyrics Translation", "adoption": 42}
         ]
         return {
             "intent": "Feature Adoption",
-            "answer": "Notes has the highest weekly adoption rate at 76%, followed closely by AI Search at 68%. AI Summary is the lowest at 42%.",
+            "answer": "Playlists has the highest weekly adoption rate at 76%, followed closely by Smart Search at 68%. Lyrics Translation is the lowest at 42%.",
             "chart_type": "bar",
             "chart_data": adoption_data,
             "generated_query": "SELECT feature, adoption_rate FROM feature_adoption ORDER BY adoption_rate DESC;",
             "insights": [
                 Insight(
-                    title="Notes dominates user adoption",
-                    summary="Notes is adopted by 76% of active users within their first week.",
+                    title="Playlists dominates user adoption",
+                    summary="Playlists is adopted by 76% of active users within their first week.",
                     confidence=90,
-                    recommendation="Feature Notes prominently in the user onboarding tour.",
+                    recommendation="Feature Playlists prominently in the user onboarding tour.",
                     priority="High"
                 )
             ],
             "follow_ups": [
                 "Which onboarding step improves adoption?",
-                "Show adoption of OCR Scanner over time"
+                "Show adoption of Offline Sync over time"
             ]
         }
 
     if intent == "engagementByFeature":
         eng_data = [
-            {"feature": "Notes", "avgSessionMin": 14.5},
-            {"feature": "AI Search", "avgSessionMin": 11.2},
-            {"feature": "OCR Scanner", "avgSessionMin": 8.9},
-            {"feature": "AI Summary", "avgSessionMin": 6.4}
+            {"feature": "Playlists", "avgSessionMin": 14.5},
+            {"feature": "Smart Search", "avgSessionMin": 11.2},
+            {"feature": "Offline Sync", "avgSessionMin": 8.9},
+            {"feature": "Lyrics Translation", "avgSessionMin": 6.4}
         ]
         return {
             "intent": "Engagement by Feature",
-            "answer": "Users spend the most time engaging with Notes (averaging 14.5 minutes per session), compared to 11.2 minutes for AI Search.",
+            "answer": "Users spend the most time engaging with Playlists (averaging 14.5 minutes per session), compared to 11.2 minutes for Smart Search.",
             "chart_type": "bar",
             "chart_data": eng_data,
             "generated_query": "SELECT feature, avg(session_duration) FROM feature_sessions GROUP BY feature ORDER BY avg(session_duration) DESC;",
             "insights": [
                 Insight(
-                    title="Notes session duration is highly sticky",
-                    summary="Notes leads average session time at 14.5 minutes, showing deeper user engagement.",
+                    title="Playlists session duration is highly sticky",
+                    summary="Playlists leads average session time at 14.5 minutes, showing deeper user engagement.",
                     confidence=87,
-                    recommendation="Optimize Notes load times and editor speed to keep engagement high.",
+                    recommendation="Optimize playlist loading times to keep engagement high.",
                     priority="Medium"
                 )
             ],
@@ -395,7 +395,7 @@ def answer_question(question: str) -> dict:
 
     return {
         "intent": "Product Health Overview",
-        "answer": "The product is growing revenue and retention, but engagement softened in late June. The highest priority is diagnosing the DAU decline while amplifying the Notes retention loop.",
+        "answer": "The product is growing revenue and retention, but engagement softened in late June. The highest priority is diagnosing the DAU decline while amplifying the Playlists retention loop.",
         "chart_type": "table",
         "chart_data": overview_metrics(),
         "generated_query": "SELECT metric, value, delta FROM product_health_snapshot;",
@@ -406,4 +406,3 @@ def answer_question(question: str) -> dict:
             "Show MRR trend"
         ]
     }
-

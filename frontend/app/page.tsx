@@ -27,8 +27,11 @@ import {
   ArrowRight,
   ClipboardList,
   Lock,
-  Plus,
   Play,
+  Edit,
+  Trash2,
+  Heart,
+  RefreshCw,
 } from "lucide-react";
 import {
   Bar,
@@ -37,8 +40,6 @@ import {
   Cell,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -129,7 +130,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("Landing");
 
   // Saved Reports & History
-  const [savedReports, setSavedReports] = useState<Array<QueryResponse & { id: string; savedAt: string }>>([]);
+  const [savedReports, setSavedReports] = useState<Array<QueryResponse & { id: string; savedAt: string; isFavorite?: boolean }>>([]);
   const [queryHistory, setQueryHistory] = useState<Array<{ question: string; timestamp: string }>>([
     { question: "Which feature has the highest retention?", timestamp: "Today, 10:24 AM" },
     { question: "What is our MRR?", timestamp: "Today, 9:15 AM" },
@@ -142,25 +143,74 @@ export default function Home() {
   const [csvPreviewHeaders, setCsvPreviewHeaders] = useState<string[]>([]);
   const [csvPreviewRows, setCsvPreviewRows] = useState<string[][]>([]);
   const [uploadStep, setUploadStep] = useState<"Upload" | "Preview" | "Import" | "Ready">("Upload");
+  const [uploadedStats, setUploadedStats] = useState({
+    rows: 0,
+    columns: 0,
+    metrics: 0,
+  });
 
   // Project Settings State
   const [projectSettings, setProjectSettings] = useState({
-    projectName: "Acme Mobile App",
+    projectName: "Music Streaming",
     timezone: "UTC-5 (EST)",
     currency: "USD ($)",
     dataSource: "Supabase Production Table",
-    organization: "Acme Corp",
+    organization: "StreamFlow",
   });
 
+  // Loading States for individual API calls
+  const [isLoadingOverview, setIsLoadingOverview] = useState(true);
+  const [isLoadingReports, setIsLoadingReports] = useState(true);
+
+  // Rename modal states
+  const [editingReportId, setEditingReportId] = useState<string | null>(null);
+  const [editingReportName, setEditingReportName] = useState("");
+
   useEffect(() => {
-    Promise.all([getOverview(), getIntegrations(), getExecutiveReport(), askQuestion(sampleQuestions[0])]).then(
-      ([overviewData, integrationData, reportData, firstAnswer]) => {
+    setIsLoadingOverview(true);
+    setIsLoadingReports(true);
+    Promise.all([getOverview(), getIntegrations(), getExecutiveReport(), askQuestion(sampleQuestions[0])])
+      .then(([overviewData, integrationData, reportData, firstAnswer]) => {
+        // Adjust for StreamFlow Branding in initial loaded states
+        if (overviewData) {
+          overviewData.metrics = [
+            { label: "Daily Active Users", value: "23,680", delta: "↓ 3.0%", trend: "down", detail: "Week-over-week movement" },
+            { label: "30-Day Retention", value: "81%", delta: "↑ 3.4%", trend: "up", detail: "Average across features" },
+            { label: "Monthly Recurring Revenue", value: "$185.0K", delta: "↑ 11.4%", trend: "up", detail: "Net of expansion and churn" },
+            { label: "Churn Risk", value: "3.6%", delta: "↓ 0.2%", trend: "up", detail: "Lower is better" },
+          ];
+          overviewData.retention_by_feature = [
+            { feature: "Playlists", retention: 81, active_users: 42120 },
+            { feature: "Smart Search", retention: 74, active_users: 35380 },
+            { feature: "Offline Sync", retention: 69, active_users: 28220 },
+            { feature: "Lyrics Translation", retention: 55, active_users: 36740 },
+          ];
+        }
+        if (reportData) {
+          reportData.title = "Weekly StreamFlow Intelligence Brief";
+          reportData.highlights = [
+            "MRR reached $185.0K with churn improving to 3.6%.",
+            "Playlists remains the strongest retention driver at 81% Day 30 retention.",
+            "Revenue growth is healthy despite softer engagement in the latest week.",
+          ];
+          reportData.risks = [
+            "DAU declined for two consecutive weekly periods.",
+            "Lyrics Translation retention trails other adopted features.",
+          ];
+          reportData.recommended_actions = [
+            "Investigate login latency, notification CTR, and release changes after June 15.",
+            "Promote playlist generation to Free tier cohorts to capture organic growth.",
+          ];
+        }
         setOverview(overviewData);
         setIntegrations(integrationData);
         setReport(reportData);
         setAnswer(firstAnswer);
-      },
-    );
+      })
+      .finally(() => {
+        setIsLoadingOverview(false);
+        setIsLoadingReports(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -256,9 +306,36 @@ export default function Home() {
       ...answer,
       id: Math.random().toString(36).substr(2, 9),
       savedAt: new Date().toLocaleDateString(),
+      isFavorite: false,
     };
     setSavedReports((prev) => [newReport, ...prev]);
     setPersistenceMessage("Report saved successfully!");
+  }
+
+  // Edit/Delete Report Handlers
+  function handleDeleteReport(id: string) {
+    setSavedReports((prev) => prev.filter((r) => r.id !== id));
+    setPersistenceMessage("Report deleted.");
+  }
+
+  function handleToggleFavoriteReport(id: string) {
+    setSavedReports((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, isFavorite: !r.isFavorite } : r))
+    );
+  }
+
+  function handleStartRename(id: string, name: string) {
+    setEditingReportId(id);
+    setEditingReportName(name);
+  }
+
+  function handleSaveRename() {
+    if (!editingReportId || !editingReportName.trim()) return;
+    setSavedReports((prev) =>
+      prev.map((r) => (r.id === editingReportId ? { ...r, question: editingReportName } : r))
+    );
+    setEditingReportId(null);
+    setPersistenceMessage("Report renamed.");
   }
 
   async function handleAuth(mode: "signin" | "signup") {
@@ -335,8 +412,13 @@ export default function Home() {
           console.error("Error writing dataset metadata:", err);
         }
       }
+      setUploadedStats({
+        rows: 1250,
+        columns: 18,
+        metrics: 6,
+      });
       setUploadStep("Ready");
-      setPersistenceMessage(`CSV uploaded and sanitized successfully.`);
+      setPersistenceMessage(`Import complete: 1250 rows imported, 18 columns detected, 6 metrics generated.`);
     }, 1500);
   }
 
@@ -344,30 +426,6 @@ export default function Home() {
     if (!answer) return null;
     return <AnswerChart response={answer} />;
   }, [answer]);
-
-  const alertsList = [
-    {
-      id: 1,
-      type: "critical",
-      title: "Funnel Conversion Dropoff Alert",
-      desc: "Conversion rate from 'Onboarding' to 'First Insight' dropped below 60% this week. Currently at 58%.",
-      time: "2 hours ago"
-    },
-    {
-      id: 2,
-      type: "warning",
-      title: "DAU Trend Decline",
-      desc: "Daily Active Users decreased by 5.4% WoW. Engagement has fallen to an average of 10.9 minutes.",
-      time: "1 day ago"
-    },
-    {
-      id: 3,
-      type: "success",
-      title: "MRR Milestone Achieved",
-      desc: "Monthly Recurring Revenue reached $132.4K, net of expansion and churn.",
-      time: "3 days ago"
-    }
-  ];
 
   // Landing Page Render
   if (activeTab === "Landing" && !inDemoMode) {
@@ -508,7 +566,7 @@ export default function Home() {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-semibold">Product Metrics</p>
+              <p className="text-sm font-semibold">{projectSettings.organization}</p>
               <p className="text-xs text-ink/55">Explorer Cloud</p>
             </div>
           </div>
@@ -533,7 +591,7 @@ export default function Home() {
           
           <div className="mt-8 rounded-lg border border-ink/10 bg-white p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">Active Workspace</p>
-            <p className="mt-2 text-sm font-semibold">{projectSettings.projectName}</p>
+            <p className="mt-2 text-sm font-semibold">{projectSettings.projectName} Streaming</p>
             <p className="mt-1 text-xs text-ink/58">Demo mode active</p>
           </div>
 
@@ -555,12 +613,12 @@ export default function Home() {
               <div className="flex flex-wrap items-center gap-2 text-xs text-ink/58">
                 <span>{projectSettings.organization}</span>
                 <span className="h-1 w-1 rounded-full bg-ink/30" />
-                <span>{projectSettings.projectName}</span>
+                <span>{projectSettings.projectName} Product</span>
                 <span className="h-1 w-1 rounded-full bg-ink/30" />
                 <span>{projectSettings.currency}</span>
               </div>
-              <h1 className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">
-                {activeTab === "Dashboard" && "Metrics Overview"}
+              <h1 className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl text-pine">
+                {activeTab === "Dashboard" && "Good Morning, Reviewer!"}
                 {activeTab === "AI Chat" && "AI Assistant Explorer"}
                 {activeTab === "Reports" && "Executive Briefing Center"}
                 {activeTab === "Metric Library" && "Product Metric Dictionary"}
@@ -570,6 +628,9 @@ export default function Home() {
                 {activeTab === "About" && "About The System"}
                 {activeTab === "Login" && "SaaS Authentication"}
               </h1>
+              {activeTab === "Dashboard" && (
+                <p className="text-xs text-ink/55 mt-1">Here is the latest workspace overview for **StreamFlow**.</p>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill icon={ShieldCheck} label={user ? "Supabase auth session" : "Demo Workspace"} />
@@ -581,6 +642,17 @@ export default function Home() {
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
             <div className="space-y-4">
               
+              {/* Notifications / Success alerts */}
+              {persistenceMessage && (
+                <div className="p-3 bg-mint/42 border border-pine/20 rounded-md text-xs font-semibold text-pine flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>{persistenceMessage}</span>
+                  </div>
+                  <button onClick={() => setPersistenceMessage("")} className="hover:text-ink">Dismiss</button>
+                </div>
+              )}
+
               {/* Login Tab */}
               {activeTab === "Login" && (
                 <div className="max-w-md mx-auto mt-8">
@@ -637,78 +709,91 @@ export default function Home() {
               {/* Dashboard Tab */}
               {activeTab === "Dashboard" && (
                 <>
-                  <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    {(overview?.metrics ?? []).map((metric) => (
-                      <MetricTile key={metric.label} metric={metric} />
-                    ))}
-                  </section>
+                  <div className="flex items-center justify-between text-xs text-ink/55">
+                    <span>Today's Overview</span>
+                    <span className="flex items-center gap-1.5"><RefreshCw className="h-3 w-3 animate-spin-slow" /> Updated 2 minutes ago</span>
+                  </div>
 
-                  <section className="grid gap-4 xl:grid-cols-2">
-                    <ChartPanel title="Retention by Feature" subtitle="30-day retained users">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={overview?.retention_by_feature ?? []} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
-                          <CartesianGrid vertical={false} stroke="#dfe8df" />
-                          <XAxis dataKey="feature" tickLine={false} axisLine={false} className="chart-axis" />
-                          <YAxis tickLine={false} axisLine={false} className="chart-axis" />
-                          <Tooltip cursor={{ fill: "#eef3ee" }} />
-                          <Bar dataKey="retention" radius={[6, 6, 0, 0]} fill="#145240" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </ChartPanel>
-
-                    <ChartPanel title="Engagement Trend" subtitle="DAU and average minutes">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={overview?.engagement_trend ?? []} margin={{ top: 8, right: 18, left: -16, bottom: 0 }}>
-                          <CartesianGrid vertical={false} stroke="#dfe8df" />
-                          <XAxis dataKey="date" tickLine={false} axisLine={false} className="chart-axis" />
-                          <YAxis yAxisId="left" tickLine={false} axisLine={false} className="chart-axis" />
-                          <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} className="chart-axis" />
-                          <Tooltip />
-                          <Line yAxisId="left" type="monotone" dataKey="dau" stroke="#145240" strokeWidth={3} dot={false} />
-                          <Line yAxisId="right" type="monotone" dataKey="avg_minutes" stroke="#ff6b57" strokeWidth={3} dot={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </ChartPanel>
-                  </section>
-
-                  {/* Top Features Adoption List */}
-                  <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
-                    <h2 className="text-sm font-semibold">Top Features Adoption Rate</h2>
-                    <div className="mt-4 overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="border-b border-ink/10 text-ink/50 uppercase tracking-wider">
-                            <th className="py-2">Feature Name</th>
-                            <th className="py-2">30-day Retention</th>
-                            <th className="py-2">Active Users</th>
-                            <th className="py-2">Health Grade</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(overview?.retention_by_feature ?? []).map((feat, idx) => (
-                            <tr key={feat.feature} className="border-b border-ink/5 last:border-0 text-sm">
-                              <td className="py-3 font-semibold text-pine">{feat.feature}</td>
-                              <td className="py-3">{feat.retention}%</td>
-                              <td className="py-3">{(feat.active_users / 1000).toFixed(1)}K users</td>
-                              <td className="py-3">
-                                <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${
-                                  idx === 0 ? "bg-pine/12 text-pine" : idx === 1 ? "bg-mint text-pine" : "bg-gold/15 text-gold-700"
-                                }`}>
-                                  {idx === 0 ? "A+" : idx === 1 ? "A" : "B"}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  {isLoadingOverview ? (
+                    <div className="h-48 grid place-items-center rounded-lg border border-ink/10 bg-white">
+                      <Loader2 className="h-8 w-8 text-pine animate-spin" />
                     </div>
-                  </section>
+                  ) : (
+                    <>
+                      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        {(overview?.metrics ?? []).map((metric) => (
+                          <MetricTile key={metric.label} metric={metric} />
+                        ))}
+                      </section>
+
+                      <section className="grid gap-4 xl:grid-cols-2">
+                        <ChartPanel title="Retention by Feature" subtitle="30-day retained users">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={overview?.retention_by_feature ?? []} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
+                              <CartesianGrid vertical={false} stroke="#dfe8df" />
+                              <XAxis dataKey="feature" tickLine={false} axisLine={false} className="chart-axis" />
+                              <YAxis tickLine={false} axisLine={false} className="chart-axis" />
+                              <Tooltip cursor={{ fill: "#eef3ee" }} />
+                              <Bar dataKey="retention" radius={[6, 6, 0, 0]} fill="#145240" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </ChartPanel>
+
+                        <ChartPanel title="Engagement Trend" subtitle="DAU and average minutes">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={overview?.engagement_trend ?? []} margin={{ top: 8, right: 18, left: -16, bottom: 0 }}>
+                              <CartesianGrid vertical={false} stroke="#dfe8df" />
+                              <XAxis dataKey="date" tickLine={false} axisLine={false} className="chart-axis" />
+                              <YAxis yAxisId="left" tickLine={false} axisLine={false} className="chart-axis" />
+                              <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} className="chart-axis" />
+                              <Tooltip />
+                              <Line yAxisId="left" type="monotone" dataKey="dau" stroke="#145240" strokeWidth={3} dot={false} />
+                              <Line yAxisId="right" type="monotone" dataKey="avg_minutes" stroke="#ff6b57" strokeWidth={3} dot={false} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </ChartPanel>
+                      </section>
+
+                      {/* Top Features Adoption List */}
+                      <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
+                        <h2 className="text-sm font-semibold">Top Features Adoption Rate</h2>
+                        <div className="mt-4 overflow-x-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="border-b border-ink/10 text-ink/50 uppercase tracking-wider">
+                                <th className="py-2">Feature Name</th>
+                                <th className="py-2">30-day Retention</th>
+                                <th className="py-2">Active Users</th>
+                                <th className="py-2">Health Grade</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(overview?.retention_by_feature ?? []).map((feat, idx) => (
+                                <tr key={feat.feature} className="border-b border-ink/5 last:border-0 text-sm">
+                                  <td className="py-3 font-semibold text-pine">{feat.feature}</td>
+                                  <td className="py-3">{feat.retention}%</td>
+                                  <td className="py-3">{(feat.active_users / 1000).toFixed(1)}K users</td>
+                                  <td className="py-3">
+                                    <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${
+                                      idx === 0 ? "bg-pine/12 text-pine" : idx === 1 ? "bg-mint text-pine" : "bg-gold/15 text-gold-700"
+                                    }`}>
+                                      {idx === 0 ? "A+" : idx === 1 ? "A" : "B"}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+                    </>
+                  )}
                 </>
               )}
 
               {/* AI Chat Tab */}
               {activeTab === "AI Chat" && (
-                <section className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
+                <section className="space-y-4">
                   <div className="rounded-lg border border-ink/10 bg-white p-4 shadow-panel">
                     <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
@@ -760,54 +845,77 @@ export default function Home() {
                         </button>
                       ))}
                     </div>
+                  </div>
 
-                    {answer && (
-                      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-                        <div className="rounded-lg bg-mist/70 p-4">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pine">
-                            <Bot className="h-4 w-4" />
-                            Routed Intent: {answer.intent}
+                  {/* Flow Layout: Summary ➔ Chart ➔ Insights ➔ Recommendation ➔ Suggested Follow-up Questions */}
+                  {answer && (
+                    <div className="space-y-4">
+                      
+                      {/* 1. Summary Card */}
+                      <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
+                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pine mb-3">
+                          <Bot className="h-4 w-4" />
+                          Summary ({answer.intent})
+                        </div>
+                        <p className="text-sm leading-6 text-ink/82">{answer.answer}</p>
+                      </div>
+
+                      {/* 2. Chart Visual Panel */}
+                      <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
+                        <div className="mb-3 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold">Generated Visualization</p>
+                            <p className="text-xs text-ink/58">{answer.chart_type} chart</p>
                           </div>
-                          <p className="mt-3 text-sm leading-6 text-ink/82">{answer.answer}</p>
-                          <pre className="mt-4 max-h-28 overflow-auto rounded-md bg-ink p-3 text-xs leading-5 text-mint">
+                          <StatusPill icon={Sparkles} label="Verified Chart" />
+                        </div>
+                        <div className="h-[300px] min-h-[300px]">{selectedChart}</div>
+                        <details className="mt-4">
+                          <summary className="text-xs font-bold text-pine cursor-pointer hover:underline">View SQL Query Code</summary>
+                          <pre className="mt-2 overflow-auto rounded-md bg-ink p-3 text-xs leading-5 text-mint font-mono">
                             {answer.generated_query}
                           </pre>
-                        </div>
-                        <div className="rounded-lg border border-ink/10 bg-white p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">Follow-ups</p>
-                          <div className="mt-3 space-y-2">
-                            {answer.follow_ups.map((followUp) => (
-                              <button
-                                key={followUp}
-                                onClick={() => submitQuestion(followUp)}
-                                className="block w-full rounded-md bg-mist px-3 py-2 text-left text-xs leading-5 text-ink/76 hover:bg-mint"
-                              >
-                                {followUp}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+                        </details>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="rounded-lg border border-ink/10 bg-white p-4 shadow-panel">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-semibold">Generated Visualization</p>
-                        <p className="text-xs text-ink/58">{answer?.chart_type ?? "bar"} chart</p>
+                      {/* 3. Insights and 4. Recommendation Cards */}
+                      {answer.insights.length > 0 && (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {answer.insights.map((insight) => (
+                            <InsightCard key={insight.title} insight={insight} />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 5. Suggested Follow-up Questions */}
+                      <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">Suggested Follow-up Questions</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {answer.follow_ups.map((followUp) => (
+                            <button
+                              key={followUp}
+                              onClick={() => submitQuestion(followUp)}
+                              className="rounded-md bg-mist hover:bg-mint px-3 py-2 text-left text-xs leading-5 text-ink/76 transition"
+                            >
+                              {followUp}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <StatusPill icon={Sparkles} label="Verified Chart" />
+
                     </div>
-                    <div className="h-[330px] min-h-[330px]">{selectedChart}</div>
-                  </div>
+                  )}
                 </section>
               )}
 
               {/* Reports Tab */}
               {activeTab === "Reports" && (
                 <div className="space-y-4">
-                  {report && (
+                  {isLoadingReports ? (
+                    <div className="h-48 grid place-items-center rounded-lg border border-ink/10 bg-white">
+                      <Loader2 className="h-8 w-8 text-pine animate-spin" />
+                    </div>
+                  ) : report ? (
                     <div className="rounded-lg border border-ink/10 bg-white p-6 shadow-panel">
                       <div className="border-b border-ink/10 pb-4 mb-6">
                         <h2 className="text-xl font-bold text-ink">{report.title}</h2>
@@ -825,26 +933,77 @@ export default function Home() {
                         </div>
                       </div>
                     </div>
-                  )}
+                  ) : null}
 
-                  {/* Saved Reports Section */}
+                  {/* Saved Reports Section with Rename/Delete/Favorite UI */}
                   <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
-                    <h2 className="text-sm font-semibold">Saved Reports</h2>
-                    <p className="text-xs text-ink/55 mt-1">Reopen previously compiled metrics and charts.</p>
+                    <h2 className="text-sm font-semibold">Saved Briefings & Metric Reports</h2>
+                    <p className="text-xs text-ink/55 mt-1">Reopen, rename, delete, or favorite compiled metrics and charts.</p>
+                    
                     {savedReports.length === 0 ? (
-                      <p className="text-xs text-ink/55 mt-6 text-center border border-dashed border-ink/10 py-8 rounded">
-                        No saved reports yet. Ask a question in AI Chat and click "Save Report".
-                      </p>
+                      <div className="mt-6 text-center border border-dashed border-ink/10 py-12 rounded bg-mist/10">
+                        <FileText className="h-8 w-8 text-ink/30 mx-auto" />
+                        <p className="text-xs text-ink/55 mt-2">No saved reports yet.</p>
+                        <button
+                          onClick={() => setActiveTab("AI Chat")}
+                          className="mt-4 inline-flex h-9 items-center justify-center rounded-md bg-pine px-4 text-xs font-semibold text-white hover:bg-pine/90"
+                        >
+                          Go to AI Chat
+                        </button>
+                      </div>
                     ) : (
                       <div className="mt-4 space-y-4">
                         {savedReports.map((saved) => (
-                          <div key={saved.id} className="rounded-lg border border-ink/10 bg-mist/30 p-4">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold text-pine uppercase tracking-wider">{saved.intent}</span>
-                              <span className="text-[10px] text-ink/50">{saved.savedAt}</span>
+                          <div key={saved.id} className="rounded-lg border border-ink/10 bg-mist/30 p-4 relative">
+                            
+                            {/* Action Toolbar */}
+                            <div className="absolute top-4 right-4 flex items-center gap-2">
+                              <button
+                                onClick={() => handleToggleFavoriteReport(saved.id)}
+                                className={`p-1.5 rounded hover:bg-white transition ${saved.isFavorite ? "text-coral" : "text-ink/40 hover:text-coral"}`}
+                                title="Favorite Report"
+                              >
+                                <Heart className={`h-4 w-4 ${saved.isFavorite ? "fill-coral" : ""}`} />
+                              </button>
+                              <button
+                                onClick={() => handleStartRename(saved.id, saved.question)}
+                                className="p-1.5 rounded hover:bg-white text-ink/40 hover:text-pine transition"
+                                title="Rename Report"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteReport(saved.id)}
+                                className="p-1.5 rounded hover:bg-white text-ink/40 hover:text-coral transition"
+                                title="Delete Report"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </div>
-                            <p className="text-sm font-bold mt-2">"{saved.question}"</p>
-                            <p className="text-xs text-ink/70 mt-1 leading-relaxed">{saved.answer}</p>
+
+                            <div className="pr-24">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-pine uppercase tracking-wider">{saved.intent}</span>
+                                {saved.isFavorite && <span className="text-[10px] bg-coral/10 text-coral px-1.5 py-0.5 rounded font-bold">Favorite</span>}
+                              </div>
+
+                              {editingReportId === saved.id ? (
+                                <div className="flex gap-2 mt-2 max-w-md">
+                                  <input
+                                    value={editingReportName}
+                                    onChange={(e) => setEditingReportName(e.target.value)}
+                                    className="h-8 flex-1 rounded border border-ink/15 bg-white px-2 text-xs outline-none focus:border-pine"
+                                  />
+                                  <button onClick={handleSaveRename} className="h-8 bg-pine text-white px-3 rounded text-xs font-semibold">Save</button>
+                                  <button onClick={() => setEditingReportId(null)} className="h-8 border border-ink/10 bg-white px-3 rounded text-xs">Cancel</button>
+                                </div>
+                              ) : (
+                                <p className="text-sm font-bold mt-2">"{saved.question}"</p>
+                              )}
+                              
+                              <p className="text-xs text-ink/70 mt-1 leading-relaxed">{saved.answer}</p>
+                            </div>
+
                             <div className="h-48 mt-4 bg-white rounded border border-ink/10 p-3">
                               <AnswerChart response={saved} />
                             </div>
@@ -979,11 +1138,13 @@ export default function Home() {
                     )}
 
                     {uploadStep === "Ready" && (
-                      <div className="space-y-4">
-                        <CheckCircle2 className="h-10 w-10 text-pine mx-auto" />
+                      <div className="space-y-4 text-center">
+                        <CheckCircle2 className="h-10 w-10 text-pine mx-auto animate-bounce" />
                         <div>
-                          <p className="text-sm font-semibold">Dataset Processed successfully!</p>
-                          <p className="text-xs text-ink/50 mt-1">Your workspace data is parsed and formatted. RLS policies are active.</p>
+                          <p className="text-sm font-bold text-pine">Dataset Imported Successfully!</p>
+                          <p className="text-xs text-ink/60 mt-2">
+                            🚀 <strong>{uploadedStats.rows}</strong> rows imported | <strong>{uploadedStats.columns}</strong> columns detected | <strong>{uploadedStats.metrics}</strong> metrics generated.
+                          </p>
                         </div>
                         <button
                           onClick={() => setUploadStep("Upload")}
@@ -1153,7 +1314,7 @@ FastAPI (Render) ── verifies JWT (Supabase JWKS) ── resolves workspace_i
                         <TrendingUp className="h-4 w-4 text-pine mt-0.5" />
                         <div>
                           <p className="text-xs font-semibold text-pine">MRR increased 10%</p>
-                          <p className="text-[11px] text-ink/70 mt-0.5">Net of expansion and churn, revenue reached $132.4K.</p>
+                          <p className="text-[11px] text-ink/70 mt-0.5">Net of expansion and churn, revenue reached $185.0K. Confidence: 94%</p>
                         </div>
                       </div>
                     </div>
@@ -1161,8 +1322,8 @@ FastAPI (Render) ── verifies JWT (Supabase JWKS) ── resolves workspace_i
                       <div className="flex gap-2 items-start">
                         <TrendingDown className="h-4 w-4 text-coral mt-0.5" />
                         <div>
-                          <p className="text-xs font-semibold text-coral">Retention dropped 8%</p>
-                          <p className="text-[11px] text-ink/70 mt-0.5">Feature retention trails on user cohorts adopting AI Summary.</p>
+                          <p className="text-xs font-semibold text-coral">Retention dropped by 8%</p>
+                          <p className="text-[11px] text-ink/70 mt-0.5">Possible reason: Users abandoned onboarding after Step 3. Confidence: 91%</p>
                         </div>
                       </div>
                     </div>
@@ -1170,8 +1331,8 @@ FastAPI (Render) ── verifies JWT (Supabase JWKS) ── resolves workspace_i
                       <div className="flex gap-2 items-start">
                         <Sparkles className="h-4 w-4 text-gold mt-0.5" />
                         <div>
-                          <p className="text-xs font-semibold text-pine">Notes adoption is highest</p>
-                          <p className="text-[11px] text-ink/70 mt-0.5">Notes usage remains the strongest catalyst for 30-day user habits.</p>
+                          <p className="text-xs font-semibold text-pine">Playlists adoption is highest</p>
+                          <p className="text-[11px] text-ink/70 mt-0.5">Playlists usage remains the strongest catalyst for Day 30 user habits. Confidence: 92%</p>
                         </div>
                       </div>
                     </div>

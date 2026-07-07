@@ -19,7 +19,7 @@ from typing import Callable, Optional
 # ---------------------------------------------------------------------------
 # Fixed vocabularies (must match your actual dataset's feature/plan names)
 # ---------------------------------------------------------------------------
-FEATURE_NAMES = ["notes", "ai search", "ocr scanner", "ai summary", "templates", "export"]
+FEATURE_NAMES = ["playlists", "smart search", "offline sync", "lyrics translation", "recommendations", "favorites"]
 
 
 def extract_feature(q: str) -> Optional[str]:
