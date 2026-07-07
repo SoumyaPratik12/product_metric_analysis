@@ -25,7 +25,7 @@ create table if not exists public.organization_members (
 
 create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid references public.organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   owner_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
   description text,
@@ -35,7 +35,7 @@ create table if not exists public.projects (
 create table if not exists public.ai_conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  project_id text not null default 'demo-project',
+  project_id uuid not null references public.projects(id) on delete cascade,
   question text not null,
   intent text not null,
   answer text not null,
@@ -50,7 +50,7 @@ create table if not exists public.ai_conversations (
 create table if not exists public.saved_dashboards (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  project_id text not null default 'demo-project',
+  project_id uuid not null references public.projects(id) on delete cascade,
   name text not null,
   layout_json jsonb not null,
   created_at timestamptz not null default now()
@@ -59,7 +59,7 @@ create table if not exists public.saved_dashboards (
 create table if not exists public.datasets (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  project_id text not null default 'demo-project',
+  project_id uuid not null references public.projects(id) on delete cascade,
   file_name text not null,
   file_path text not null,
   file_size bigint not null default 0,
@@ -83,7 +83,7 @@ create table if not exists public.dataset_rows (
 create table if not exists public.reports (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  project_id text not null default 'demo-project',
+  project_id uuid not null references public.projects(id) on delete cascade,
   title text not null,
   content_json jsonb not null,
   created_at timestamptz not null default now()
@@ -99,6 +99,7 @@ alter table public.datasets enable row level security;
 alter table public.dataset_rows enable row level security;
 alter table public.reports enable row level security;
 
+-- Profile policies
 create policy "Users can read own profile" on public.profiles
   for select using (auth.uid() = id);
 
@@ -108,32 +109,141 @@ create policy "Users can update own profile" on public.profiles
 create policy "Users can insert own profile" on public.profiles
   for insert with check (auth.uid() = id);
 
+-- Organization policies
 create policy "Users can manage owned organizations" on public.organizations
   for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 
+-- Organization Members policies
 create policy "Users can read memberships" on public.organization_members
-  for select using (auth.uid() = user_id);
+  for select using (
+    organization_id in (
+      select organization_id from public.organization_members
+      where user_id = auth.uid()
+    )
+  );
 
 create policy "Users can manage own memberships" on public.organization_members
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-create policy "Users can manage owned projects" on public.projects
-  for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+-- Projects membership-based policies
+create policy "Org members can manage projects" on public.projects
+  for all using (
+    organization_id in (
+      select organization_id from public.organization_members
+      where user_id = auth.uid()
+    )
+  ) with check (
+    organization_id in (
+      select organization_id from public.organization_members
+      where user_id = auth.uid()
+    )
+  );
 
-create policy "Users can manage own conversations" on public.ai_conversations
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- Datasets membership-based policies
+create policy "Org members can manage datasets" on public.datasets
+  for all using (
+    project_id in (
+      select id from public.projects
+      where organization_id in (
+        select organization_id from public.organization_members
+        where user_id = auth.uid()
+      )
+    )
+  ) with check (
+    project_id in (
+      select id from public.projects
+      where organization_id in (
+        select organization_id from public.organization_members
+        where user_id = auth.uid()
+      )
+    )
+  );
 
-create policy "Users can manage own dashboards" on public.saved_dashboards
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- Dataset Rows membership-based policies
+create policy "Org members can manage dataset rows" on public.dataset_rows
+  for all using (
+    dataset_id in (
+      select id from public.datasets
+      where project_id in (
+        select id from public.projects
+        where organization_id in (
+          select organization_id from public.organization_members
+          where user_id = auth.uid()
+        )
+      )
+    )
+  ) with check (
+    dataset_id in (
+      select id from public.datasets
+      where project_id in (
+        select id from public.projects
+        where organization_id in (
+          select organization_id from public.organization_members
+          where user_id = auth.uid()
+        )
+      )
+    )
+  );
 
-create policy "Users can manage own datasets" on public.datasets
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- AI Conversations membership-based policies
+create policy "Org members can manage conversations" on public.ai_conversations
+  for all using (
+    project_id in (
+      select id from public.projects
+      where organization_id in (
+        select organization_id from public.organization_members
+        where user_id = auth.uid()
+      )
+    )
+  ) with check (
+    project_id in (
+      select id from public.projects
+      where organization_id in (
+        select organization_id from public.organization_members
+        where user_id = auth.uid()
+      )
+    )
+  );
 
-create policy "Users can manage own dataset rows" on public.dataset_rows
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- Saved Dashboards membership-based policies
+create policy "Org members can manage dashboards" on public.saved_dashboards
+  for all using (
+    project_id in (
+      select id from public.projects
+      where organization_id in (
+        select organization_id from public.organization_members
+        where user_id = auth.uid()
+      )
+    )
+  ) with check (
+    project_id in (
+      select id from public.projects
+      where organization_id in (
+        select organization_id from public.organization_members
+        where user_id = auth.uid()
+      )
+    )
+  );
 
-create policy "Users can manage own reports" on public.reports
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- Reports membership-based policies
+create policy "Org members can manage reports" on public.reports
+  for all using (
+    project_id in (
+      select id from public.projects
+      where organization_id in (
+        select organization_id from public.organization_members
+        where user_id = auth.uid()
+      )
+    )
+  ) with check (
+    project_id in (
+      select id from public.projects
+      where organization_id in (
+        select organization_id from public.organization_members
+        where user_id = auth.uid()
+      )
+    )
+  );
 
 create index if not exists dataset_rows_dataset_id_idx
   on public.dataset_rows (dataset_id);

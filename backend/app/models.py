@@ -64,3 +64,11 @@ class ExecutiveReport(BaseModel):
     recommended_actions: list[str]
     metrics: list[MetricCard]
 
+
+class UploadResponse(BaseModel):
+    file_name: str
+    row_count: int
+    columns: list[str]
+    status: str
+
+

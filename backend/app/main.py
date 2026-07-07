@@ -1,7 +1,11 @@
 import os
-
-from fastapi import FastAPI
+import csv
+import io
+from fastapi import FastAPI, Depends, UploadFile, File, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from app.analytics import (
     ENGAGEMENT_TREND,
@@ -12,7 +16,16 @@ from app.analytics import (
     base_insights,
     overview_metrics,
 )
-from app.models import ExecutiveReport, Integration, OverviewResponse, QueryRequest, QueryResponse
+from app.models import (
+    ExecutiveReport,
+    Integration,
+    OverviewResponse,
+    QueryRequest,
+    QueryResponse,
+    UploadResponse,
+)
+from app.auth import get_current_user_and_workspace, AuthenticatedUser
+from app.sanitizer import sanitize_csv_cell
 
 
 def _allowed_origins() -> list[str]:
@@ -24,12 +37,17 @@ def _allowed_origins() -> list[str]:
 
 allowed_origins = _allowed_origins()
 
+# Configure slowapi rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="Product Metrics Explorer API",
     version="0.1.0",
     description="MVP analytics and AI insight API for Product Metrics Explorer.",
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,7 +64,7 @@ def health() -> dict[str, str]:
 
 
 @app.get("/api/overview", response_model=OverviewResponse)
-def overview() -> OverviewResponse:
+def overview(user: AuthenticatedUser = Depends(get_current_user_and_workspace)) -> OverviewResponse:
     return OverviewResponse(
         metrics=overview_metrics(),
         retention_by_feature=RETENTION_BY_FEATURE,
@@ -58,13 +76,18 @@ def overview() -> OverviewResponse:
 
 
 @app.post("/api/query", response_model=QueryResponse)
-def query_metrics(payload: QueryRequest) -> QueryResponse:
+@limiter.limit("20/minute")
+def query_metrics(
+    payload: QueryRequest,
+    request: Request,
+    user: AuthenticatedUser = Depends(get_current_user_and_workspace),
+) -> QueryResponse:
     result = answer_question(payload.question)
     return QueryResponse(question=payload.question, **result)
 
 
 @app.get("/api/integrations", response_model=list[Integration])
-def integrations() -> list[Integration]:
+def integrations(user: AuthenticatedUser = Depends(get_current_user_and_workspace)) -> list[Integration]:
     return [
         Integration(name="PostgreSQL", category="Warehouse", status="connected", last_sync="6 min ago"),
         Integration(name="Stripe", category="Revenue", status="connected", last_sync="14 min ago"),
@@ -75,7 +98,7 @@ def integrations() -> list[Integration]:
 
 
 @app.get("/api/reports/executive", response_model=ExecutiveReport)
-def executive_report() -> ExecutiveReport:
+def executive_report(user: AuthenticatedUser = Depends(get_current_user_and_workspace)) -> ExecutiveReport:
     return ExecutiveReport(
         title="Weekly Product Intelligence Brief",
         period="June 22-29, 2026",
@@ -96,3 +119,46 @@ def executive_report() -> ExecutiveReport:
         ],
         metrics=overview_metrics(),
     )
+
+
+@app.post("/datasets/upload", response_model=UploadResponse)
+@limiter.limit("10/minute")
+def upload_dataset(
+    request: Request,
+    file: UploadFile = File(...),
+    user: AuthenticatedUser = Depends(get_current_user_and_workspace),
+) -> UploadResponse:
+    # 1. Size Validation (limit to 5MB for MVP)
+    MAX_FILE_SIZE = 5 * 1024 * 1024
+    content = file.file.read(MAX_FILE_SIZE + 1)
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File size exceeds the 5MB limit")
+
+    file_in_memory = io.StringIO(content.decode("utf-8", errors="ignore"))
+    reader = csv.reader(file_in_memory)
+
+    try:
+        header = next(reader)
+    except StopIteration:
+        raise HTTPException(status_code=400, detail="Empty CSV file")
+
+    columns = [sanitize_csv_cell(col) for col in header]
+    row_count = 0
+    sanitized_rows = []
+
+    # 2. Row Count Validation (limit to 50,000 rows for MVP)
+    MAX_ROW_COUNT = 50000
+    for row in reader:
+        row_count += 1
+        if row_count > MAX_ROW_COUNT:
+            raise HTTPException(status_code=400, detail="Row count exceeds the 50,000 rows limit")
+        sanitized_row = [sanitize_csv_cell(cell) for cell in row]
+        sanitized_rows.append(sanitized_row)
+
+    return UploadResponse(
+        file_name=file.filename,
+        row_count=row_count,
+        columns=columns,
+        status="successfully_sanitized_and_processed",
+    )
+
