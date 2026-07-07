@@ -90,3 +90,102 @@ export const fallbackReport: ExecutiveReport = {
   metrics: fallbackOverview.metrics,
 };
 
+export function getFallbackQueryResponse(question: string): QueryResponse {
+  const normalized = question.toLowerCase();
+
+  if (normalized.includes("retain") || normalized.includes("retention") || normalized.includes("cohort")) {
+    return {
+      question,
+      intent: "Retention Analysis",
+      answer: "Notes has the highest 30-day retention at 81%. The next best feature is AI Search at 74%.",
+      chart_type: "bar",
+      chart_data: fallbackOverview.retention_by_feature,
+      insights: fallbackOverview.insights,
+      generated_query: "SELECT feature, retention_30d, active_users FROM feature_retention ORDER BY retention_30d DESC;",
+      follow_ups: ["Compare Premium vs Free retention", "Show Day 7 retention by feature", "Which onboarding step improves retention?"],
+    };
+  }
+
+  if (normalized.includes("funnel") || normalized.includes("drop") || normalized.includes("conversion") || normalized.includes("checkout") || normalized.includes("signup")) {
+    return {
+      question,
+      intent: "Funnel Diagnosis",
+      answer: "The largest cumulative drop happens before First Insight, where only 58% of signup users remain in the journey.",
+      chart_type: "funnel",
+      chart_data: fallbackOverview.funnel,
+      insights: [
+        {
+          title: "First Insight is the activation bottleneck",
+          summary: "The product loses 23 percentage points between onboarding and first insight generation.",
+          confidence: 86,
+          recommendation: "Shorten the first-query path and add templates for common product analytics questions.",
+          priority: "High",
+        }
+      ],
+      generated_query: "SELECT stage, users, conversion_rate FROM activation_funnel ORDER BY stage_order ASC;",
+      follow_ups: [
+        "Segment this funnel by acquisition channel",
+        "Show drop-off by plan type",
+        "What should we change in onboarding?",
+      ],
+    };
+  }
+
+  if (normalized.includes("revenue") || normalized.includes("mrr") || normalized.includes("arr") || normalized.includes("arpu") || normalized.includes("churn")) {
+    return {
+      question,
+      intent: "Revenue Analytics",
+      answer: "MRR grew to $132.4K in June while churn improved to 3.6%, indicating expansion is outstripping customer loss.",
+      chart_type: "line",
+      chart_data: fallbackOverview.revenue_trend,
+      insights: [
+        {
+          title: "Revenue quality is improving",
+          summary: "MRR, ARPU, and churn are all moving in healthy directions across the latest period.",
+          confidence: 89,
+          recommendation: "Prioritize expansion prompts for teams that saved at least three dashboards.",
+          priority: "Medium",
+        }
+      ],
+      generated_query: "SELECT month, mrr, arpu, churn_rate FROM revenue_metrics ORDER BY month ASC;",
+      follow_ups: [
+        "Forecast next month MRR",
+        "Show churn by customer segment",
+        "Which features correlate with paid conversion?",
+      ],
+    };
+  }
+
+  if (normalized.includes("dau") || normalized.includes("engagement") || normalized.includes("session") || normalized.includes("active")) {
+    return {
+      question,
+      intent: "Engagement Root Cause",
+      answer: "DAU decreased from 20,180 to 17,680 over the second half of June, while sessions and average minutes also declined.",
+      chart_type: "line",
+      chart_data: fallbackOverview.engagement_trend,
+      insights: [fallbackOverview.insights[1]],
+      generated_query: "SELECT week, dau, sessions, avg_minutes FROM engagement_weekly ORDER BY week ASC;",
+      follow_ups: [
+        "Why did DAU decrease this week?",
+        "Compare engagement by feature",
+        "Show active users by plan",
+      ],
+    };
+  }
+
+  return {
+    question,
+    intent: "Product Health Overview",
+    answer: "The product is growing revenue and retention, but engagement softened in late June. The highest priority is diagnosing the DAU decline while amplifying the Notes retention loop.",
+    chart_type: "table",
+    chart_data: fallbackOverview.metrics,
+    generated_query: "SELECT metric, value, delta FROM product_health_snapshot;",
+    insights: fallbackOverview.insights,
+    follow_ups: [
+      "Which feature has the highest retention?",
+      "Why did engagement decrease this week?",
+      "Show revenue trend",
+    ],
+  };
+}
+

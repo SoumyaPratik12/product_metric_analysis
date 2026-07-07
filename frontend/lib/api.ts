@@ -1,4 +1,4 @@
-import { fallbackIntegrations, fallbackOverview, fallbackQuery, fallbackReport } from "./fallback";
+import { fallbackIntegrations, fallbackOverview, fallbackReport, getFallbackQueryResponse } from "./fallback";
 import type { ExecutiveReport, Integration, Overview, QueryResponse } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -20,7 +20,7 @@ async function request<T>(path: string, options?: RequestInit, fallback?: T): Pr
 
     return (await response.json()) as T;
   } catch {
-    if (fallback) return fallback;
+    if (fallback !== undefined) return fallback;
     throw new Error("Unable to reach analytics API");
   }
 }
@@ -36,7 +36,7 @@ export function askQuestion(question: string): Promise<QueryResponse> {
       method: "POST",
       body: JSON.stringify({ question }),
     },
-    { ...fallbackQuery, question },
+    getFallbackQueryResponse(question),
   );
 }
 
