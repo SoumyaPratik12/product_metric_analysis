@@ -118,7 +118,43 @@ def detect_intent(question: str) -> str:
 
 
 def answer_question(question: str) -> dict:
-    intent = detect_intent(question)
+    from app.nlp.router import route
+    
+    result = route(question)
+    status = result["status"]
+    
+    if status == "matched":
+        intent = result["function"]
+    elif status == "ambiguous":
+        return {
+            "intent": "Clarification Required",
+            "answer": "Did you mean one of the following product metric analysis views?",
+            "chart_type": "table",
+            "chart_data": [],
+            "generated_query": "-- Ambiguous query detected",
+            "insights": [],
+            "follow_ups": [
+                "Which feature has the highest retention?" if c == "retention" else
+                "Show revenue trend" if c == "revenue" else
+                "Where do users drop off in the funnel?" if c == "funnel" else
+                "Why did engagement decrease this week?" for c in result["candidates"]
+            ]
+        }
+    else: # status == "low_confidence"
+        return {
+            "intent": "Clarification Required",
+            "answer": "I'm not fully sure what you're asking. Try rephrasing, or pick a suggested question.",
+            "chart_type": "table",
+            "chart_data": [],
+            "generated_query": "-- Low confidence query detected",
+            "insights": [],
+            "follow_ups": [
+                "Which feature has the highest retention?",
+                "Why did engagement decrease this week?",
+                "Show revenue trend",
+                "Where do users drop off in the funnel?"
+            ]
+        }
 
     if intent == "retention":
         top = max(RETENTION_BY_FEATURE, key=lambda item: item["retention"])
