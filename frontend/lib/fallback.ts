@@ -91,9 +91,108 @@ export const fallbackReport: ExecutiveReport = {
 };
 
 export function getFallbackQueryResponse(question: string): QueryResponse {
-  const normalized = question.toLowerCase();
+  const normalized = question.toLowerCase().trim();
 
-  if (normalized.includes("retain") || normalized.includes("retention") || normalized.includes("cohort")) {
+  // Weighted keywords configurations
+  const intents = {
+    retention: {
+      keywords: ["retention", "retain", "cohort", "feature", "retained"],
+      negatives: ["mrr", "revenue", "churn", "funnel", "dropoff", "drop off", "conversion", "arpu"],
+      regex: [/which feature.*highest.*retention/, /highest.*retention/, /retention.*feature/]
+    },
+    funnel: {
+      keywords: ["funnel", "dropoff", "drop-off", "conversion", "signup", "onboarding", "invite"],
+      negatives: ["mrr", "revenue", "churn", "retention", "dau", "arpu"],
+      regex: [/where.*drop off.*funnel/, /drop off.*funnel/, /funnel.*conversion/, /where do users drop off/]
+    },
+    revenue: {
+      keywords: ["revenue", "mrr", "arr", "arpu", "churn", "plan", "pricing"],
+      negatives: ["retention", "funnel", "onboarding", "dau", "session"],
+      regex: [/show.*revenue.*trend/, /revenue.*trend/, /mrr.*trend/, /churn.*rate/]
+    },
+    engagement: {
+      keywords: ["dau", "engagement", "session", "active", "minutes", "average"],
+      negatives: ["mrr", "revenue", "churn", "funnel", "arpu"],
+      regex: [/why.*engagement.*decrease/, /dau.*decrease/, /engagement.*decrease/, /why did engagement decrease/]
+    }
+  };
+
+  // Check regex matches first, unless a negative keyword is present
+  for (const [intentName, config] of Object.entries(intents)) {
+    const hasNegative = config.negatives.some(neg => normalized.includes(neg));
+    if (hasNegative) continue;
+
+    for (const pattern of config.regex) {
+      if (pattern.test(normalized)) {
+        return getMatchedIntentResponse(intentName, question);
+      }
+    }
+  }
+
+  // Scoring
+  const scores: Record<string, number> = {};
+  for (const [intentName, config] of Object.entries(intents)) {
+    let score = 0.0;
+    for (const kw of config.keywords) {
+      if (normalized.includes(kw)) {
+        score += kw === "feature" || kw === "active" || kw === "average" ? 1.5 : 5.0;
+      }
+    }
+    for (const neg of config.negatives) {
+      if (normalized.includes(neg)) {
+        score -= 8.0;
+      }
+    }
+    scores[intentName] = score;
+  }
+
+  // Sort by score
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  const [topIntent, topScore] = sorted[0];
+  const [secondIntent, secondScore] = sorted[1];
+
+  if (topScore < 2.0) {
+    return {
+      question,
+      intent: "Clarification Required",
+      answer: "I'm not fully sure what you're asking. Try rephrasing, or pick a suggested question.",
+      chart_type: "table",
+      chart_data: [],
+      generated_query: "-- Low confidence query detected",
+      insights: [],
+      follow_ups: [
+        "Which feature has the highest retention?",
+        "Why did engagement decrease this week?",
+        "Show revenue trend",
+        "Where do users drop off in the funnel?"
+      ]
+    };
+  }
+
+  if (topScore - secondScore < 1.5) {
+    const candidates = [topIntent, secondIntent];
+    return {
+      question,
+      intent: "Clarification Required",
+      answer: "Did you mean one of the following product metric analysis views?",
+      chart_type: "table",
+      chart_data: [],
+      generated_query: "-- Ambiguous query detected",
+      insights: [],
+      follow_ups: candidates.map(c => 
+        c === "retention" ? "Which feature has the highest retention?" :
+        c === "revenue" ? "Show revenue trend" :
+        c === "funnel" ? "Where do users drop off in the funnel?" :
+        "Why did engagement decrease this week?"
+      )
+    };
+  }
+
+  return getMatchedIntentResponse(topIntent, question);
+}
+
+function getMatchedIntentResponse(intent: string, question: string): QueryResponse {
+  if (intent === "retention") {
     return {
       question,
       intent: "Retention Analysis",
@@ -105,8 +204,7 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
       follow_ups: ["Compare Premium vs Free retention", "Show Day 7 retention by feature", "Which onboarding step improves retention?"],
     };
   }
-
-  if (normalized.includes("funnel") || normalized.includes("drop") || normalized.includes("conversion") || normalized.includes("checkout") || normalized.includes("signup")) {
+  if (intent === "funnel") {
     return {
       question,
       intent: "Funnel Diagnosis",
@@ -130,8 +228,7 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
       ],
     };
   }
-
-  if (normalized.includes("revenue") || normalized.includes("mrr") || normalized.includes("arr") || normalized.includes("arpu") || normalized.includes("churn")) {
+  if (intent === "revenue") {
     return {
       question,
       intent: "Revenue Analytics",
@@ -155,36 +252,19 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
       ],
     };
   }
-
-  if (normalized.includes("dau") || normalized.includes("engagement") || normalized.includes("session") || normalized.includes("active")) {
-    return {
-      question,
-      intent: "Engagement Root Cause",
-      answer: "DAU decreased from 20,180 to 17,680 over the second half of June, while sessions and average minutes also declined.",
-      chart_type: "line",
-      chart_data: fallbackOverview.engagement_trend,
-      insights: [fallbackOverview.insights[1]],
-      generated_query: "SELECT week, dau, sessions, avg_minutes FROM engagement_weekly ORDER BY week ASC;",
-      follow_ups: [
-        "Why did DAU decrease this week?",
-        "Compare engagement by feature",
-        "Show active users by plan",
-      ],
-    };
-  }
-
+  // engagement
   return {
     question,
-    intent: "Product Health Overview",
-    answer: "The product is growing revenue and retention, but engagement softened in late June. The highest priority is diagnosing the DAU decline while amplifying the Notes retention loop.",
-    chart_type: "table",
-    chart_data: fallbackOverview.metrics,
-    generated_query: "SELECT metric, value, delta FROM product_health_snapshot;",
-    insights: fallbackOverview.insights,
+    intent: "Engagement Root Cause",
+    answer: "DAU decreased from 20,180 to 17,680 over the second half of June, while sessions and average minutes also declined.",
+    chart_type: "line",
+    chart_data: fallbackOverview.engagement_trend,
+    insights: [fallbackOverview.insights[1]],
+    generated_query: "SELECT week, dau, sessions, avg_minutes FROM engagement_weekly ORDER BY week ASC;",
     follow_ups: [
-      "Which feature has the highest retention?",
-      "Why did engagement decrease this week?",
-      "Show revenue trend",
+      "Why did DAU decrease this week?",
+      "Compare engagement by feature",
+      "Show active users by plan",
     ],
   };
 }
