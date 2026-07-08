@@ -34,6 +34,8 @@ import {
   RefreshCw,
   WifiOff,
   AlertTriangle,
+  HeartHandshake,
+  Cpu,
 } from "lucide-react";
 import {
   Bar,
@@ -75,43 +77,78 @@ const metricLibraryData = [
     definition: "The percentage of users who return to the app after their first visit.",
     formula: "(Active Users in Cohort / Cohort Size) * 100",
     description: "Crucial for evaluating product-market fit and long-term customer value.",
+    businessPurpose: "Measure user loyalty and product-market fit over specific time intervals.",
+    whenToUse: "When evaluating onboarding optimization, major feature launches, or subscription health.",
+    commonMistakes: "Focusing on simple day-1 metrics instead of looking for cohort curves that flatten over time.",
+    relatedMetrics: ["Churn Rate", "Daily Active Users (DAU)", "Session Duration"],
+    recommendedVisualization: "Cohort analysis grid or line trend chart.",
   },
   {
     name: "DAU (Daily Active Users)",
     definition: "The number of unique users active in a 24-hour window.",
     formula: "COUNT(DISTINCT user_id) per day",
     description: "Primary health metric tracking daily engagement, growth, and habit-formation.",
+    businessPurpose: "Understand daily active adoption scale and customer login frequency.",
+    whenToUse: "To monitor immediate server loads, marketing campaign performance, and product adoption stickiness.",
+    commonMistakes: "Counting raw logins instead of actual core action events (e.g. playing a song).",
+    relatedMetrics: ["Monthly Active Users (MAU)", "Session Duration", "Playlists Created"],
+    recommendedVisualization: "Line trend charts or area graphs.",
   },
   {
     name: "MAU (Monthly Active Users)",
     definition: "The number of unique users active in a 30-day window.",
     formula: "COUNT(DISTINCT user_id) per month",
     description: "High-level overview metric representing total active audience size.",
+    businessPurpose: "Evaluate total active community scale and monthly growth trajectories.",
+    whenToUse: "To track top-of-funnel customer scale, geographic distribution, and overall active pool size.",
+    commonMistakes: "Treating MAU as a primary retention indicator. MAU can grow even if retention drops if new acquisitions are high.",
+    relatedMetrics: ["Daily Active Users (DAU)", "Churn Rate", "Premium Conversion"],
+    recommendedVisualization: "Bar charts or stacked area charts.",
   },
   {
     name: "MRR (Monthly Recurring Revenue)",
     definition: "Total predictable subscription revenue generated monthly.",
     formula: "SUM(Plan Price) for all active monthly subscriptions",
     description: "The core financial benchmark metric for SaaS business models.",
+    businessPurpose: "Monitor financial growth rate, business valuation, and capital predictability.",
+    whenToUse: "During financial planning, monetization strategy evaluations, and upgrade campaign planning.",
+    commonMistakes: "Including non-recurring one-time payments or failing to subtract credit card processing failures.",
+    relatedMetrics: ["ARPU (Average Revenue Per User)", "Churn Rate", "Customer Lifetime Value (LTV)"],
+    recommendedVisualization: "Line trend charts or waterfall growth charts.",
   },
   {
     name: "Churn Rate",
     definition: "The percentage of customers who cancel their subscriptions in a given period.",
     formula: "(Canceled Users / Starting Period Users) * 100",
     description: "Tracks customer dissatisfaction, product issues, or revenue leak.",
+    businessPurpose: "Measure user attrition, dissatisfaction, or pricing friction.",
+    whenToUse: "When auditing onboarding friction, payment provider billing errors, or competitor pressure impact.",
+    commonMistakes: "Blending voluntary churn (user cancels) with involuntary churn (payment expires) in one un-segmented group.",
+    relatedMetrics: ["Monthly Recurring Revenue (MRR)", "30-Day Retention"],
+    recommendedVisualization: "Line trend charts or segment bar charts.",
   },
   {
     name: "Conversion Rate",
     definition: "The percentage of users who complete a desired onboarding step.",
     formula: "(Converted Users / Total Funnel Starts) * 100",
     description: "Identifies points of friction inside your activation funnel.",
+    businessPurpose: "Identify friction bottlenecks in user signup, upgrade, or feature onboarding paths.",
+    whenToUse: "When running onboarding UX updates, payment page redesigns, or marketing landing page A/B tests.",
+    commonMistakes: "Measuring conversions without setting a fixed attribution window (e.g. within 24 hours of signup).",
+    relatedMetrics: ["Activation Rate", "Onboarding Completion", "First Song Play"],
+    recommendedVisualization: "Funnel drop-off charts or conversion step tables.",
   },
   {
     name: "Activation Rate",
     definition: "The percentage of users who complete the core 'value-realizing' action.",
     formula: "(Activated Users / Total Registrations) * 100",
     description: "Strongest indicator of early user conversion and successful onboarding.",
-  },
+    businessPurpose: "Verify if new users are discovering the product's core value moment ('Aha!' moment).",
+    whenToUse: "When planning product walkthrough updates, tooltip tours, or early stage marketing campaigns.",
+    commonMistakes: "Defining activation as simple registration instead of a value action (e.g., creating a playlist).",
+    relatedMetrics: ["Conversion Rate", "30-Day Retention", "Playlists Created"],
+    recommendedVisualization: "Cohort conversion bars or split line charts.",
+  }
 ];
 
 const richMetricDetails: Record<string, {
@@ -138,12 +175,12 @@ const richMetricDetails: Record<string, {
     owner: "Core Product Team",
     description: "The count of unique active users who played a song or logged in within a 24-hour cycle.",
     formula: "COUNT(DISTINCT user_id) WHERE action_time >= TODAY()",
-    currentVal: "23,680",
-    prevVal: "24,410",
-    trendText: "↓ 3.0% vs Last Week",
-    benchmarkTarget: "25,000",
-    benchmarkAverage: "20,000",
-    status: "Needs Attention",
+    currentVal: "125,000",
+    prevVal: "119,960",
+    trendText: "↑ 4.2% vs Last Week",
+    benchmarkTarget: "120,000",
+    benchmarkAverage: "105,000",
+    status: "Healthy",
     impactLevel: "High",
     businessMeaning: "Direct measure of daily utility, user return rate, and active habit formation.",
     businessImpact: "Higher DAU drives passive music streaming sessions, increases ad impressions for free tiers, and directly feeds premium upgrade conversion rates.",
@@ -157,9 +194,9 @@ const richMetricDetails: Record<string, {
     description: "The percentage of new users who remain active exactly 30 days after signing up.",
     formula: "(Active Cohort Users on Day 30 / Starting Cohort Size) * 100",
     currentVal: "81%",
-    prevVal: "78%",
-    trendText: "↑ 3.4% vs Last Month",
-    benchmarkTarget: "80%",
+    prevVal: "83%",
+    trendText: "↓ 2.0% vs Last Week",
+    benchmarkTarget: "75%",
     benchmarkAverage: "74%",
     status: "Healthy",
     impactLevel: "High",
@@ -175,8 +212,8 @@ const richMetricDetails: Record<string, {
     description: "Total predictable subscription payments generated monthly from active plans.",
     formula: "SUM(monthly_price) WHERE subscription_status = 'active'",
     currentVal: "$185.0K",
-    prevVal: "$166.0K",
-    trendText: "↑ 11.4% vs Last Month",
+    prevVal: "$172.9K",
+    trendText: "↑ 7.0% vs Last Month",
     benchmarkTarget: "$180K",
     benchmarkAverage: "$145K",
     status: "Healthy",
@@ -284,10 +321,10 @@ export default function Home() {
         // Adjust for StreamFlow Branding in initial loaded states
         if (overviewData) {
           overviewData.metrics = [
-            { label: "Daily Active Users", value: "23,680", delta: "↓ 3.0%", trend: "down", detail: "Week-over-week movement" },
-            { label: "30-Day Retention", value: "81%", delta: "↑ 3.4%", trend: "up", detail: "Average across features" },
-            { label: "Monthly Recurring Revenue", value: "$185.0K", delta: "↑ 11.4%", trend: "up", detail: "Net of expansion and churn" },
-            { label: "Churn Risk", value: "3.6%", delta: "↓ 0.2%", trend: "up", detail: "Lower is better" },
+            { label: "Daily Active Users", value: "125,000", delta: "↑ 4.2%", trend: "up", detail: "Compared with last week | Healthy" },
+            { label: "30-Day Retention", value: "81%", delta: "↓ 2.0%", trend: "down", detail: "Compared with last week | Healthy" },
+            { label: "Monthly Recurring Revenue", value: "$185.0K", delta: "↑ 7.0%", trend: "up", detail: "Compared with last month | Healthy" },
+            { label: "Churn Risk", value: "3.6%", delta: "↓ 0.2%", trend: "up", detail: "Compared with last month | Healthy" },
           ];
           overviewData.retention_by_feature = [
             { feature: "Playlists", retention: 81, active_users: 42120 },
@@ -994,14 +1031,12 @@ export default function Home() {
               {/* Dashboard Tab */}
               {activeTab === "Dashboard" && (
                 <>
-                  {/* v1.1 Better Dashboard Layout: Overview -> Health Summary -> KPIs -> Charts -> Insights */}
-                  
                   {/* Overview Snapshot */}
                   <section className="bg-white border border-ink/10 rounded-lg p-5 shadow-panel" aria-label="StreamFlow Company Snapshot">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
                         <span className="text-xs font-semibold text-pine uppercase tracking-wider">Company Profile</span>
-                        <h2 className="text-lg font-bold text-ink">StreamFlow Inc.</h2>
+                        <h2 className="text-lg font-bold text-pine">StreamFlow Inc.</h2>
                         <p className="text-xs text-ink/55 mt-0.5">Fictional Music Streaming SaaS platform launched in 2021, operating in 35 countries.</p>
                       </div>
                       <div className="flex flex-wrap gap-4 text-xs">
@@ -1021,21 +1056,130 @@ export default function Home() {
                     </div>
                   </section>
 
-                  {/* Health Summary Banner */}
-                  <section className="bg-mint/30 border border-pine/20 rounded-lg p-4 flex items-center justify-between text-xs text-pine" aria-label="Health Summary">
-                    <div className="flex items-center gap-2 font-semibold">
-                      <Gauge className="h-4 w-4" />
-                      <span>Health Status: <strong>Above Target</strong>. StreamFlow metrics exceed benchmark goals in 3 out of 4 indicators.</span>
+                  {/* Today's Snapshot & Health Summary Grid */}
+                  <section className="grid gap-4 md:grid-cols-3" aria-label="Today's Performance Overview">
+                    
+                    {/* Today's Snapshot & Health Score Card */}
+                    <div className="rounded-lg border border-pine/15 bg-mint/10 p-4 flex flex-col justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-pine">Today's Snapshot</p>
+                        <div className="mt-2 flex items-baseline gap-2">
+                          <span className="text-2xl font-bold text-pine">Good</span>
+                          <span className="text-xs text-ink/65">(85/100 Health Score)</span>
+                        </div>
+                        <p className="text-[11px] text-ink/70 mt-2 leading-relaxed">
+                          Overall product performance is healthy. Smart Search features drove engagement uplifts, offsetting minor active user variations.
+                        </p>
+                      </div>
+                      <div className="mt-4 flex items-center justify-between border-t border-pine/10 pt-2 text-[10px] text-pine/80 font-bold uppercase">
+                        <span>Overall Status</span>
+                        <span>Above Target</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-full bg-pine" />
-                      <span className="font-bold">Healthy Workspace</span>
+
+                    {/* Top Insight Card */}
+                    <div className="rounded-lg border border-gold/30 bg-gold/10 p-4 flex flex-col justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gold-700">Top Insight</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-gold-700" />
+                          <span className="text-xs font-bold text-ink">Smart Search Engagement</span>
+                        </div>
+                        <p className="text-[11px] text-ink/70 mt-2 leading-relaxed">
+                          AI detected increased engagement after the Smart Search update. Session durations grew by 18% in core test cohorts.
+                        </p>
+                      </div>
+                      <div className="mt-4 flex items-center justify-between border-t border-gold/20 pt-2 text-[10px] text-gold-700 font-bold uppercase">
+                        <span>Identified By AI</span>
+                        <span>91% Confidence</span>
+                      </div>
                     </div>
+
+                    {/* User Satisfaction (Qualitative Metrics) */}
+                    <div className="rounded-lg border border-ink/10 bg-white p-4 flex flex-col justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">User Satisfaction</p>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-center">
+                          <div className="bg-mist/30 p-2 rounded border border-ink/5">
+                            <span className="block text-[10px] uppercase text-ink/50">NPS Score</span>
+                            <span className="text-sm font-bold text-pine">+48</span>
+                          </div>
+                          <div className="bg-mist/30 p-2 rounded border border-ink/5">
+                            <span className="block text-[10px] uppercase text-ink/50">CSAT Score</span>
+                            <span className="text-sm font-bold text-pine">82%</span>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-ink/64 mt-2 text-center italic">
+                          Above the industry average targets.
+                        </p>
+                      </div>
+                      <div className="mt-4 flex items-center justify-between border-t border-ink/10 pt-2 text-[10px] text-ink/50 font-bold uppercase">
+                        <span>Status</span>
+                        <span className="text-pine font-bold">Stable</span>
+                      </div>
+                    </div>
+
+                  </section>
+
+                  {/* Operational Efficiency & Performance Section */}
+                  <section className="grid gap-4 md:grid-cols-2" aria-label="System Performance and Efficiency Metrics">
+                    
+                    {/* Product Performance Card */}
+                    <div className="rounded-lg border border-ink/10 bg-white p-4">
+                      <div className="flex items-center gap-2 border-b border-ink/5 pb-2 mb-3">
+                        <Cpu className="h-4 w-4 text-pine" />
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-ink/64">Product Performance</h3>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                        <div className="bg-mist/40 p-2 rounded border border-ink/5">
+                          <span className="block text-[10px] uppercase text-ink/50">API Latency</span>
+                          <span className="font-bold text-ink">240ms</span>
+                        </div>
+                        <div className="bg-mist/40 p-2 rounded border border-ink/5">
+                          <span className="block text-[10px] uppercase text-ink/50">AI Response</span>
+                          <span className="font-bold text-ink">1.8s</span>
+                        </div>
+                        <div className="bg-mist/40 p-2 rounded border border-ink/5">
+                          <span className="block text-[10px] uppercase text-ink/50">SQL Exec</span>
+                          <span className="font-bold text-ink">12ms</span>
+                        </div>
+                        <div className="bg-mist/40 p-2 rounded border border-ink/5">
+                          <span className="block text-[10px] uppercase text-ink/50">Uptime</span>
+                          <span className="font-bold text-pine">99.98%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Operational Efficiency Card */}
+                    <div className="rounded-lg border border-ink/10 bg-white p-4">
+                      <div className="flex items-center gap-2 border-b border-ink/5 pb-2 mb-3">
+                        <ClipboardList className="h-4 w-4 text-pine" />
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-ink/64">Operational Efficiency</h3>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                        <div className="bg-mist/40 p-2 rounded border border-ink/5">
+                          <span className="block text-[10px] uppercase text-ink/50">Import Time</span>
+                          <span className="font-bold text-ink">1.4s</span>
+                        </div>
+                        <div className="bg-mist/40 p-2 rounded border border-ink/5">
+                          <span className="block text-[10px] uppercase text-ink/50">Query Latency</span>
+                          <span className="font-bold text-ink">85ms</span>
+                        </div>
+                        <div className="bg-mist/40 p-2 rounded border border-ink/5">
+                          <span className="block text-[10px] uppercase text-ink/50">AI Requests</span>
+                          <span className="font-bold text-ink">412</span>
+                        </div>
+                        <div className="bg-mist/40 p-2 rounded border border-ink/5">
+                          <span className="block text-[10px] uppercase text-ink/50">Reports Gen</span>
+                          <span className="font-bold text-ink">89</span>
+                        </div>
+                      </div>
+                    </div>
+
                   </section>
 
                   <div className="flex items-center justify-between text-xs text-ink/55">
                     <span>Key Performance Indicators (Click card to inspect metric)</span>
-                    <span className="flex items-center gap-1.5"><RefreshCw className="h-3 w-3 animate-spin-slow" /> Updated 2 minutes ago</span>
                   </div>
 
                   {isLoadingOverview ? (
@@ -1349,8 +1493,8 @@ export default function Home() {
                     {savedReports.length === 0 ? (
                       <div className="mt-6 text-center border border-dashed border-ink/10 py-12 rounded bg-mist/10">
                         <FileText className="h-8 w-8 text-ink/30 mx-auto" />
-                        <p className="text-sm font-bold mt-2">No Reports Yet</p>
-                        <p className="text-xs text-ink/55 mt-1">Ask your first AI question to create your first report.</p>
+                        <p className="text-sm font-bold mt-2">No Saved Reports Yet</p>
+                        <p className="text-xs text-ink/55 mt-1">Ask your first AI question in the AI Chat tab and click 'Save Report' to create your first executive brief.</p>
                         <button
                           onClick={() => setActiveTab("AI Chat")}
                           className="mt-4 inline-flex h-9 items-center justify-center rounded-md bg-pine px-4 text-xs font-semibold text-white hover:bg-pine/90 focus:ring-2 focus:ring-pine/20 outline-none"
@@ -1414,8 +1558,9 @@ export default function Home() {
                               <div className="flex flex-wrap gap-4 text-[10px] text-ink/45 mt-3 border-t border-ink/5 pt-2">
                                 <span>Report: Weekly Product Report</span>
                                 <span>Created: July 8</span>
+                                <span>Applied Filters: All Regions, Premium Tiers</span>
                                 <span>Metrics: Retention, MRR, DAU</span>
-                                <span>Status: Saved</span>
+                                <span>Export Status: Ready (PDF/CSV)</span>
                                 <span>Version: 1.1</span>
                               </div>
                             </div>
@@ -1438,13 +1583,22 @@ export default function Home() {
                     <BookOpen className="h-5 w-5" /> Product Metric Dictionary
                   </h2>
                   <p className="text-xs text-ink/55">Definitions, SQL formulas, and descriptions for product indicators.</p>
-                  <div className="mt-6 space-y-4">
+                  <div className="mt-6 space-y-6">
                     {metricLibraryData.map((item) => (
                       <div key={item.name} className="p-4 rounded-lg bg-mist/30 border border-ink/10">
                         <h3 className="font-bold text-sm text-pine">{item.name}</h3>
                         <p className="text-xs text-ink/75 mt-1"><strong>Definition:</strong> {item.definition}</p>
                         <p className="text-xs text-ink/75 mt-1"><strong>Formula:</strong> <code className="bg-white px-1.5 py-0.5 rounded border border-ink/10 text-coral font-mono">{item.formula}</code></p>
-                        <p className="text-xs text-ink/64 mt-2 italic">{item.description}</p>
+                        <p className="text-xs text-ink/75 mt-1"><strong>Business Purpose:</strong> {item.businessPurpose}</p>
+                        <p className="text-xs text-ink/75 mt-1"><strong>When to Use:</strong> {item.whenToUse}</p>
+                        <p className="text-xs text-ink/75 mt-1"><strong>Common Mistakes:</strong> {item.commonMistakes}</p>
+                        <p className="text-xs text-ink/75 mt-1"><strong>Recommended Visualization:</strong> {item.recommendedVisualization}</p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          <span className="text-[10px] text-ink/50 uppercase font-semibold">Related Metrics:</span>
+                          {item.relatedMetrics.map((rm) => (
+                            <span key={rm} className="text-[10px] bg-white text-ink/64 px-1.5 py-0.5 rounded border border-ink/5 font-medium">{rm}</span>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1554,20 +1708,49 @@ export default function Home() {
                     )}
 
                     {uploadStep === "Ready" && (
-                      <div className="space-y-4 text-center">
-                        <CheckCircle2 className="h-10 w-10 text-pine mx-auto animate-bounce" />
-                        <div>
-                          <p className="text-sm font-bold text-pine">Dataset Imported Successfully!</p>
-                          <p className="text-xs text-ink/60 mt-2">
-                            🚀 <strong>{uploadedStats.rows}</strong> rows imported | <strong>{uploadedStats.columns}</strong> columns detected | <strong>{uploadedStats.metrics}</strong> metrics generated.
-                          </p>
+                      <div className="space-y-4 text-left max-w-md mx-auto">
+                        <div className="text-center mb-4">
+                          <CheckCircle2 className="h-10 w-10 text-pine mx-auto animate-bounce" />
+                          <p className="text-sm font-bold text-pine mt-2">Dataset Imported Successfully!</p>
                         </div>
-                        <button
-                          onClick={() => setUploadStep("Upload")}
-                          className="h-9 px-4 rounded bg-pine text-xs font-bold text-white hover:bg-pine/90 focus:ring-2 focus:ring-pine/20 outline-none"
-                        >
-                          Upload Another File
-                        </button>
+                        
+                        {/* v1.1 Dataset Validation Summary */}
+                        <div className="bg-white border border-ink/10 rounded-lg p-4 text-xs space-y-2">
+                          <p className="font-bold text-pine uppercase tracking-wider text-[10px] border-b border-ink/5 pb-1">Dataset Quality Verification</p>
+                          <div className="flex justify-between">
+                            <span className="text-ink/55">Rows Imported:</span>
+                            <span className="font-semibold">{uploadedStats.rows}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-ink/55">Columns Detected:</span>
+                            <span className="font-semibold">{uploadedStats.columns}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-ink/55">Missing Values:</span>
+                            <span className="font-semibold text-pine">2.1% (Tolerable)</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-ink/55">Duplicate Rows:</span>
+                            <span className="font-semibold text-pine">4 (Cleaned)</span>
+                          </div>
+                          <div className="border-t border-ink/5 pt-2">
+                            <span className="block text-[10px] text-ink/50 uppercase font-semibold">Detected Metrics Map:</span>
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {["DAU", "Retention", "MRR", "Revenue", "Sessions"].map(m => (
+                                <span key={m} className="bg-mist text-ink/70 px-2 py-0.5 rounded border border-ink/5 font-semibold text-[9px]">{m}</span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="text-center mt-6">
+                          <button
+                            onClick={() => setUploadStep("Upload")}
+                            className="h-9 px-4 rounded bg-pine text-xs font-bold text-white hover:bg-pine/90 focus:ring-2 focus:ring-pine/20 outline-none"
+                          >
+                            Upload Another File
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1740,49 +1923,59 @@ FastAPI (Render) ── verifies JWT (Supabase JWKS) ── resolves workspace_i
             {/* Right Pane Context Columns */}
             <aside className="space-y-4">
               
-              {/* AI Suggestions on Dashboard */}
+              {/* AI Suggestions on Dashboard (v1.1 Prioritization Panel) */}
               {activeTab === "Dashboard" && (
-                <Panel title="AI Suggestions" subtitle="Intelligent context discoveries">
+                <Panel title="AI Prioritization Queue" subtitle="Ranked context discoveries">
                   <div className="space-y-3">
-                    <div className="rounded-lg border border-ink/10 bg-mint/10 p-3">
-                      <div className="flex gap-2 items-start">
-                        <TrendingUp className="h-4 w-4 text-pine mt-0.5" />
-                        <div>
-                          <div className="flex justify-between items-center">
-                            <p className="text-xs font-semibold text-pine">MRR increased 10%</p>
-                            <span className="text-[10px] bg-pine/10 text-pine px-1 rounded font-semibold">Priority: High</span>
-                          </div>
-                          <p className="text-[11px] text-ink/70 mt-1">Net of expansion and churn, revenue reached $185.0K. Confidence: 94%</p>
-                          <p className="text-[10px] text-pine font-medium mt-1">Recommended Action: Optimize expansion prompts.</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-ink/10 bg-coral/5 p-3">
+                    
+                    {/* Priority High suggestion */}
+                    <div className="rounded-lg border border-coral/20 bg-coral/5 p-3">
                       <div className="flex gap-2 items-start">
                         <TrendingDown className="h-4 w-4 text-coral mt-0.5" />
-                        <div>
-                          <div className="flex justify-between items-center">
-                            <p className="text-xs font-semibold text-coral">Retention decreased 8%</p>
-                            <span className="text-[10px] bg-coral/10 text-coral px-1 rounded font-semibold">Priority: High</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-[10px] bg-coral text-white px-2 py-0.5 rounded font-bold uppercase">Priority: High</span>
+                            <span className="text-[10px] text-ink/40 font-semibold">91% Conf</span>
                           </div>
-                          <p className="text-[11px] text-ink/70 mt-1">Possible reason: Users abandoned onboarding after Step 3. Confidence: 91%</p>
-                          <p className="text-[10px] text-coral font-medium mt-1">Recommended Action: Improve onboarding Step 3.</p>
+                          <p className="text-xs font-bold text-ink mt-2">Retention dropped after onboarding.</p>
+                          <p className="text-[11px] text-ink/75 mt-1 leading-relaxed">
+                            Cohort Day 30 retention decreased from 84% to 81%. Users leaving after onboarding step 3 has increased.
+                          </p>
+                          <div className="mt-3 flex items-center justify-between border-t border-coral/10 pt-2 text-[10px]">
+                            <span className="text-ink/50 font-bold uppercase">Business Impact</span>
+                            <span className="text-coral font-bold uppercase">High</span>
+                          </div>
+                          <p className="text-[10px] text-pine font-medium mt-1 leading-normal">
+                            <strong>Recommended Action</strong>: Simplify onboarding. Autoplay track recommendation stations.
+                          </p>
                         </div>
                       </div>
                     </div>
-                    <div className="rounded-lg border border-ink/10 bg-gold/10 p-3">
+
+                    {/* Priority Medium suggestion */}
+                    <div className="rounded-lg border border-gold/30 bg-gold/10 p-3">
                       <div className="flex gap-2 items-start">
-                        <Sparkles className="h-4 w-4 text-gold mt-0.5" />
-                        <div>
-                          <div className="flex justify-between items-center">
-                            <p className="text-xs font-semibold text-pine">Playlists adoption is highest</p>
-                            <span className="text-[10px] bg-gold/25 text-gold-700 px-1 rounded font-semibold">Priority: High</span>
+                        <TrendingUp className="h-4 w-4 text-gold-700 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-[10px] bg-gold-700 text-white px-2 py-0.5 rounded font-bold uppercase">Priority: Medium</span>
+                            <span className="text-[10px] text-ink/40 font-semibold">87% Conf</span>
                           </div>
-                          <p className="text-[11px] text-ink/70 mt-1">Playlists usage remains the strongest catalyst for Day 30 user habits. Confidence: 92%</p>
-                          <p className="text-[10px] text-pine font-medium mt-1">Recommended Action: Expose playlist creator on first-run.</p>
+                          <p className="text-xs font-bold text-ink mt-2">Smart Search usage increased.</p>
+                          <p className="text-[11px] text-ink/75 mt-1 leading-relaxed">
+                            Smart Search sessions grew. Average minutes per session expanded to 29 minutes for cohorts adopting search.
+                          </p>
+                          <div className="mt-3 flex items-center justify-between border-t border-gold/20 pt-2 text-[10px]">
+                            <span className="text-ink/50 font-bold uppercase">Business Impact</span>
+                            <span className="text-gold-700 font-bold uppercase">Medium</span>
+                          </div>
+                          <p className="text-[10px] text-pine font-medium mt-1 leading-normal">
+                            <strong>Recommended Action</strong>: Promote Smart Search upgrades to Free plan tiers.
+                          </p>
                         </div>
                       </div>
                     </div>
+
                   </div>
                 </Panel>
               )}
@@ -1885,7 +2078,7 @@ function MetricTile({ metric, onClick }: { metric: MetricCard; onClick?: () => v
         </div>
       </div>
       <p className="mt-4 text-2xl font-semibold text-pine">{metric.value}</p>
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs border-t border-ink/5 pt-2">
         <span className={isDown ? "font-semibold text-coral" : "font-semibold text-pine"}>{metric.delta}</span>
         <span className="text-ink/55">{metric.detail}</span>
       </div>
@@ -2025,6 +2218,7 @@ function Panel({ title, subtitle, children }: { title: string; subtitle: string;
   );
 }
 
+// Chart Panel container with exact dimensions
 function ChartPanel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
     <section className="h-[310px] rounded-lg border border-ink/10 bg-white p-4 shadow-panel">
