@@ -34,6 +34,13 @@ export type QueryResponse = {
   insights: Insight[];
   generated_query: string;
   follow_ups: string[];
+  metric_affected?: string;
+  key_findings?: string[];
+  root_cause?: string;
+  business_impact?: string;
+  recommendations?: string[];
+  confidence_level?: "High" | "Medium" | "Low";
+  confidence_score?: number;
 };
 
 export type Integration = {
