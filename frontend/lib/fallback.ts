@@ -221,6 +221,34 @@ const INTENTS: Intent[] = [
     keywords: { active: 3, engagement: 2.5, duration: 3, session: 3 },
     phrases: [/average session.*feature/, /active users.*feature/],
     negativeKeywords: { plan: 3.5, premium: 3.5 }
+  },
+  {
+    name: "genre_country_analytics",
+    functionName: "genreCountryAnalysis",
+    keywords: { genre: 4, country: 3, music: 1.5 },
+    phrases: [/most.*genre.*country/, /genre.*country/, /genre.*wise/],
+    negativeKeywords: {}
+  },
+  {
+    name: "language_analytics",
+    functionName: "languageAnalysis",
+    keywords: { language: 4, languages: 4, listen: 2.5, listened: 2.5 },
+    phrases: [/which language/, /most.*language/, /language.*listened/],
+    negativeKeywords: {}
+  },
+  {
+    name: "search_keyword_analytics",
+    functionName: "searchKeywordAnalysis",
+    keywords: { keyword: 4, typed: 3, search: 2 },
+    phrases: [/common keyword/, /typed.*search/, /search.*keyword/],
+    negativeKeywords: {}
+  },
+  {
+    name: "plan_distribution_analytics",
+    functionName: "planDistributionAnalysis",
+    keywords: { freemium: 4, subscription: 3.5, percentage: 3, premium: 2, free: 2 },
+    phrases: [/how many.*freemium/, /percentage.*paid subscription/, /users.*freemium/],
+    negativeKeywords: {}
   }
 ];
 
@@ -609,6 +637,172 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
       ],
       confidence_level: "High",
       confidence_score: 90,
+    };
+  }
+  
+  if (topIntent === "genreCountryAnalysis") {
+    const genre_data = [
+      { country: "India", streams: 95000, genre: "Bollywood" },
+      { country: "USA", streams: 85000, genre: "Pop" },
+      { country: "UK", streams: 62000, genre: "Rock" },
+      { country: "Germany", streams: 55000, genre: "Electronic" },
+      { country: "Japan", streams: 48000, genre: "J-Pop" }
+    ];
+    return {
+      question,
+      intent: "Genre Country Analytics",
+      metric_affected: "Genre Streams by Country",
+      answer: "Bollywood is the most listened genre in India (95K streams), Pop in USA (85K streams), Rock in UK (62K streams), Electronic in Germany (55K streams), and J-Pop in Japan (48K streams).",
+      chart_type: "bar",
+      chart_data: genre_data,
+      insights: [
+        {
+          title: "India dominates streaming volume via Bollywood",
+          summary: "Bollywood tracks represent 95K streams, making India the highest streaming country by single-genre density.",
+          confidence: 94,
+          recommendation: "Increase South Asian local artist catalog acquisitions.",
+          priority: "High"
+        }
+      ],
+      generated_query: "SELECT country, genre, count(*) as streams FROM streams_history GROUP BY country, genre ORDER BY streams DESC;",
+      follow_ups: ["Which language is listened to the most?", "Show genre trends in Germany"],
+      key_findings: [
+        "India leads in single-genre streaming density via Bollywood.",
+        "Pop music has global dominance in Western regions (USA/UK).",
+        "J-Pop remains a highly isolated local market trend in Japan."
+      ],
+      root_cause: "CURATED regional playlist editorial placements and localized artist promotion campaigns.",
+      business_impact: "Localized genre streaming feeds regional ad-insertion efficiency and Premium upgrade pipelines.",
+      recommendations: [
+        "Partner with Indian music labels to secure early release tracks.",
+        "Promote global crossover Pop playlists to US Premium cohorts."
+      ],
+      confidence_level: "High",
+      confidence_score: 94,
+    };
+  }
+
+  if (topIntent === "languageAnalysis") {
+    const lang_data = [
+      { language: "English", shares: 52 },
+      { language: "Spanish", shares: 22 },
+      { language: "Hindi", shares: 14 },
+      { language: "Japanese", shares: 8 },
+      { language: "Others", shares: 4 }
+    ];
+    return {
+      question,
+      intent: "Language Analytics",
+      metric_affected: "Music Language Streams Share",
+      answer: "English is the most listened language representing 52% of total music stream shares, followed by Spanish at 22% and Hindi at 14%.",
+      chart_type: "bar",
+      chart_data: lang_data,
+      insights: [
+        {
+          title: "Spanish track popularity shows global crossover",
+          summary: "Spanish tracks represent 22% of total shares, indicating strong cross-border growth.",
+          confidence: 91,
+          recommendation: "Recommend Spanish crossover tracks to English listening cohorts.",
+          priority: "Medium"
+        }
+      ],
+      generated_query: "SELECT track_language, count(*) * 100.0 / sum(count(*)) over() as share FROM track_streams GROUP BY track_language ORDER BY share DESC;",
+      follow_ups: ["What is the most listened genre country wise?", "Which language has the highest skip rate?"],
+      key_findings: [
+        "English remains the global baseline with 52% of streams.",
+        "Spanish is the fastest-growing global language share at 22%.",
+        "Hindi shares are concentrated but have extremely high session repeat rates."
+      ],
+      root_cause: "Global popularity of Latin pop and South Asian classical music crossover trends.",
+      business_impact: "Language crossover boosts average session duration through globalized recommendations.",
+      recommendations: [
+        "Introduce Spanish-English crossover radio stations.",
+        "Offer localized lyric translation features for global Spanish hits."
+      ],
+      confidence_level: "High",
+      confidence_score: 91,
+    };
+  }
+
+  if (topIntent === "searchKeywordAnalysis") {
+    const keyword_data = [
+      { keyword: "Lo-Fi Beats", searches: 28400, conversion: 82 },
+      { keyword: "Summer Hits", searches: 22100, conversion: 78 },
+      { keyword: "Chill Vibes", searches: 19500, conversion: 80 },
+      { keyword: "Gym Workout", searches: 15600, conversion: 74 },
+      { keyword: "Sad Songs", searches: 12200, conversion: 85 }
+    ];
+    return {
+      question,
+      intent: "Search Keyword Analytics",
+      metric_affected: "Top Search Keywords & Stream Conversions",
+      answer: "The most common keyword typed in the search bar is 'Lo-Fi Beats' (28.4K searches) with a conversion rate of 82% to play song. 'Sad Songs' has the highest conversion rate to stream at 85%.",
+      chart_type: "table",
+      chart_data: keyword_data,
+      insights: [
+        {
+          title: "Mood keywords drive high stream conversion",
+          summary: "Mood searches ('Sad Songs', 'Lo-Fi Beats') convert to play actions 10% more efficiently than generic keywords.",
+          confidence: 92,
+          recommendation: "Pre-load mood recommendation chips in the search panel.",
+          priority: "High"
+        }
+      ],
+      generated_query: "SELECT query_keyword, count(*) as searches, avg(converted_to_stream) as conversion FROM search_events GROUP BY query_keyword ORDER BY searches DESC LIMIT 5;",
+      follow_ups: ["Show search keywords by device type", "What is the average time to start streaming after search?"],
+      key_findings: [
+        "'Lo-Fi Beats' is the top searched term with 28.4K inquiries.",
+        "'Sad Songs' leads stream conversions at 85%.",
+        "Workout-related terms show slightly higher bounce rates (74% conversion)."
+      ],
+      root_cause: "Contextual study/exercise user intents drive mood-based search queries.",
+      business_impact: "Optimizing search-to-stream conversions reduces navigation friction and extends active sessions.",
+      recommendations: [
+        "Create and feature official playlist radios matching the top searches.",
+        "Optimize search indexing algorithms to rank playlist matches above individual tracks."
+      ],
+      confidence_level: "High",
+      confidence_score: 92,
+    };
+  }
+
+  if (topIntent === "planDistributionAnalysis") {
+    const dist_data = [
+      { stage: "Total Active Users", users: 125000 },
+      { stage: "Freemium Users", users: 87000 },
+      { stage: "Paid Subscribers", users: 38000 }
+    ];
+    return {
+      question,
+      intent: "Plan Distribution Analytics",
+      metric_affected: "Freemium vs Premium Plan Distribution",
+      answer: "Out of 125,000 active users, 87,000 (69.6%) are using the Freemium tier, while 38,000 (30.4%) have active Paid Premium Subscriptions.",
+      chart_type: "funnel",
+      chart_data: dist_data,
+      insights: [
+        {
+          title: "Paid Premium subscription conversion is stable",
+          summary: "Paid subscribers represent 30.4% of total base, aligning with long-term SaaS monetization goals.",
+          confidence: 95,
+          recommendation: "Target freemium cohorts streaming >2 hours daily with premium upgrade trials.",
+          priority: "High"
+        }
+      ],
+      generated_query: "SELECT plan_type, count(distinct user_id) FROM users GROUP BY plan_type;",
+      follow_ups: ["Compare Premium vs Free retention", "What is the average upgrade conversion rate?"],
+      key_findings: [
+        "Freemium users account for 87,000 (69.6%) of active pool.",
+        "Premium paid subscribers reached 38,000 (30.4%).",
+        "Conversion rate of free-to-paid users increased by 7.0% YoY."
+      ],
+      root_cause: "Effective expansion triggers and family upgrade bundle campaigns.",
+      business_impact: "Strong premium percentage protects operating profit margins and pays label royalties.",
+      recommendations: [
+        "Increase premium upgrade prompts when a user plays a skip-restricted free song.",
+        "Introduce student plans to convert price-sensitive student freemium segments."
+      ],
+      confidence_level: "High",
+      confidence_score: 95,
     };
   }
   

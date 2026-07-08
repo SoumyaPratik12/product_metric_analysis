@@ -143,6 +143,30 @@ INTENTS = [
         phrases=[r"(average|avg) session", r"most active"],
         negative_keywords={"drop": 2.5, "why": 2},
     ),
+    Intent(
+        name="genre_country_analytics",
+        function="genreCountryAnalysis",
+        keywords={"genre": 4, "country": 3, "music": 1.5, "genre country": 4},
+        phrases=[r"most.*genre.*country", r"genre.*country", r"genre.*wise"],
+    ),
+    Intent(
+        name="language_analytics",
+        function="languageAnalysis",
+        keywords={"language": 4, "languages": 4, "listen": 2.5, "listened": 2.5},
+        phrases=[r"which language", r"most.*language", r"language.*listened"],
+    ),
+    Intent(
+        name="search_keyword_analytics",
+        function="searchKeywordAnalysis",
+        keywords={"keyword": 4, "search bar": 3.5, "typed": 3, "search": 2},
+        phrases=[r"common keyword", r"typed.*search", r"search.*keyword"],
+    ),
+    Intent(
+        name="plan_distribution_analytics",
+        function="planDistributionAnalysis",
+        keywords={"freemium": 4, "paid subscription": 3.5, "percentage of user": 3, "percentage": 2.5, "premium vs free": 3},
+        phrases=[r"how many.*freemium", r"percentage.*paid subscription", r"users.*freemium"],
+    ),
 ]
 
 
