@@ -47,6 +47,14 @@ class QueryResponse(BaseModel):
     insights: list[Insight]
     generated_query: str
     follow_ups: list[str]
+    # v1.1 extensions:
+    metric_affected: str | None = None
+    key_findings: list[str] | None = None
+    root_cause: str | None = None
+    business_impact: str | None = None
+    recommendations: list[str] | None = None
+    confidence_level: Literal["High", "Medium", "Low"] | None = None
+    confidence_score: int | None = None
 
 
 class Integration(BaseModel):

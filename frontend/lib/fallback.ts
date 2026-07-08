@@ -12,6 +12,7 @@ export const fallbackOverview: Overview = {
     { feature: "Smart Search", retention: 74, active_users: 35380 },
     { feature: "Offline Sync", retention: 69, active_users: 28220 },
     { feature: "Lyrics Translation", retention: 55, active_users: 36740 },
+    { feature: "Recommendations", retention: 69, active_users: 31200 },
   ],
   funnel: [
     { stage: "Signup", users: 125000, conversion: 100 },
@@ -55,12 +56,26 @@ export const fallbackOverview: Overview = {
 export const fallbackQuery: QueryResponse = {
   question: "Which feature has the highest retention?",
   intent: "Retention Analysis",
-  answer: "Playlists has the highest 30-day retention at 81%. The next best feature is Smart Search at 74%.",
+  metric_affected: "30-Day Retention",
+  answer: "Playlists has the highest 30-day retention at 81%, driven by repeat audio sessions. The next best feature is Smart Search at 74%.",
   chart_type: "bar",
   chart_data: fallbackOverview.retention_by_feature,
-  insights: fallbackOverview.insights,
+  insights: [fallbackOverview.insights[0]],
   generated_query: "SELECT feature, retention_30d, active_users FROM feature_retention ORDER BY retention_30d DESC;",
   follow_ups: ["Compare Premium vs Free retention", "Show Day 7 retention by feature", "Which onboarding step improves retention?"],
+  key_findings: [
+    "Playlists user cohort shows 81% Day 30 retention.",
+    "Smart Search users exhibit 74% retention, but search frequency dropped in June.",
+    "Offline Sync retention is 69%, showing robust utility for travelers."
+  ],
+  root_cause: "Playlists creation creates a persistent user library, reducing switching costs.",
+  business_impact: "Highly retentive features lower user acquisition costs and increase customer lifetime value.",
+  recommendations: [
+    "Promote Playlist creation prominently in the onboarding tutorial.",
+    "Highlight Recommendations engine usage to increase repeat plays."
+  ],
+  confidence_level: "High",
+  confidence_score: 92,
 };
 
 export const fallbackIntegrations: Integration[] = [
@@ -146,9 +161,9 @@ const INTENTS: Intent[] = [
   {
     name: "plan_comparison",
     functionName: "planComparison",
-    keywords: { premium: 3, free: 2.5, compare: 2, vs: 2, versus: 2 },
-    phrases: [/compare.*(premium|free)/, /(premium|free).*vs.*(premium|free)/],
-    negativeKeywords: { feature: 2, notes: 2, summary: 2, play: 1.5, search: 1.5 },
+    keywords: { premium: 3, free: 2.5, compare: 2, vs: 2, versus: 2, student: 2, family: 2 },
+    phrases: [/compare.*(premium|free|student|family)/, /(premium|free|student|family).*vs.*(premium|free|student|family)/],
+    negativeKeywords: { feature: 2, notes: 2, play: 1.5, search: 1.5 },
     paramExtractors: { metric: extractPlanMetric }
   },
   {
@@ -288,28 +303,44 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
   
   // Matched responses mapping
   if (topIntent === "retentionByFeature") {
-    const top = maxBy(fallbackOverview.retention_by_feature, "retention");
     return {
       question,
       intent: "Retention Analysis",
-      answer: `${top.feature} has the highest 30-day retention at ${top.retention}%. The next best feature is Smart Search at 74%.`,
+      metric_affected: "30-Day Retention",
+      answer: "Playlists has the highest 30-day retention at 81%, driven by repeat audio sessions. The next best feature is Smart Search at 74%.",
       chart_type: "bar",
       chart_data: fallbackOverview.retention_by_feature,
       insights: [fallbackOverview.insights[0]],
       generated_query: "SELECT feature, retention_30d, active_users FROM feature_retention ORDER BY retention_30d DESC;",
-      follow_ups: ["Compare Premium vs Free retention", "Show Day 7 retention by feature", "Which onboarding step improves retention?"]
+      follow_ups: ["Compare Premium vs Free retention", "Show Day 7 retention by feature", "Which onboarding step improves retention?"],
+      key_findings: [
+        "Playlists user cohort shows 81% Day 30 retention.",
+        "Smart Search users exhibit 74% retention, but search frequency dropped in June.",
+        "Offline Sync retention is 69%, showing robust utility for travelers."
+      ],
+      root_cause: "Playlists creation creates a persistent user library, reducing switching costs.",
+      business_impact: "Highly retentive features lower user acquisition costs and increase customer lifetime value.",
+      recommendations: [
+        "Promote Playlist creation prominently in the onboarding tutorial.",
+        "Highlight Recommendations engine usage to increase repeat plays."
+      ],
+      confidence_level: "High",
+      confidence_score: 92,
     };
   }
   
   if (topIntent === "planComparison") {
     const plan_data = [
       { cohort: "Premium", retention: 85, avgSessionMin: 18.4, weeklyRevenuePerUser: 4.5 },
-      { cohort: "Free", retention: 62, avgSessionMin: 9.2, weeklyRevenuePerUser: 0.0 }
+      { cohort: "Free", retention: 62, avgSessionMin: 9.2, weeklyRevenuePerUser: 0.0 },
+      { cohort: "Family", retention: 88, avgSessionMin: 22.1, weeklyRevenuePerUser: 6.8 },
+      { cohort: "Student", retention: 72, avgSessionMin: 14.5, weeklyRevenuePerUser: 2.5 }
     ];
     return {
       question,
       intent: "Plan Comparison",
-      answer: "Premium users exhibit significantly stronger 30-day retention (85% vs 62%) and double the average session length compared to Free tier users.",
+      metric_affected: "Retention & Churn by Plan Tier",
+      answer: "Premium plans (individual and family) show 85% Day 30 retention and 3.2% churn. Student plans have 72% retention and 4.8% churn, while Free plans exhibit 62% retention.",
       chart_type: "bar",
       chart_data: plan_data,
       insights: [
@@ -322,7 +353,20 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
         }
       ],
       generated_query: "SELECT plan_type, avg(retention_30d), avg(session_duration) FROM user_cohorts GROUP BY plan_type;",
-      follow_ups: ["Segment retention by feature for Premium users", "What is the upgrade conversion rate?"]
+      follow_ups: ["Segment retention by feature for Premium users", "What is the upgrade conversion rate?"],
+      key_findings: [
+        "Premium individual cohorts lead retention at 85%.",
+        "Family tiers show the lowest customer cancelation rates (3.2% churn).",
+        "Student plans exhibit slightly higher churn due to semester-end billing cancellations."
+      ],
+      root_cause: "Ad-free experience and Offline Sync capabilities in paid plans drive superior habit-formation.",
+      business_impact: "Moving Free users to Premium individual or Student plans boosts MRR predictably.",
+      recommendations: [
+        "Promote Student upgrades before major academic terms.",
+        "Offer Family subscription bundles to highly active Premium users."
+      ],
+      confidence_level: "High",
+      confidence_score: 94,
     };
   }
   
@@ -330,12 +374,26 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     return {
       question,
       intent: "Engagement Drop Diagnosis",
+      metric_affected: "Daily Active Users (DAU) & Session duration",
       answer: "The engagement drop after June 15 was driven primarily by a 14% decline in average daily active users and a corresponding reduction in session length.",
       chart_type: "line",
       chart_data: fallbackOverview.engagement_trend,
       insights: [fallbackOverview.insights[1]],
       generated_query: "SELECT date, dau, avg_minutes FROM engagement_weekly WHERE date >= 'Jun 15' ORDER BY date ASC;",
-      follow_ups: ["Check server response times after June 15", "Compare mobile vs web app engagement drops"]
+      follow_ups: ["Check server response times after June 15", "Compare mobile vs web app engagement drops"],
+      key_findings: [
+        "DAU fell from 25.6K on June 15 to 23.6K on June 29.",
+        "Average session duration decreased by 12% across iOS and Android.",
+        "Playlist creation drop-off of 15% was identified during Step 3 of onboarding."
+      ],
+      root_cause: "Users abandoned onboarding after onboarding Step 3 due to a configuration lookup latency bug.",
+      business_impact: "Softened engagement poses a risk of future subscription churn on subsequent billing dates.",
+      recommendations: [
+        "Resolve database latency on onboarding step 3 queries.",
+        "Roll out push notification campaigns to users active in early June."
+      ],
+      confidence_level: "High",
+      confidence_score: 91,
     };
   }
   
@@ -343,20 +401,35 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     return {
       question,
       intent: "DAU Trend",
+      metric_affected: "Daily Active Users",
       answer: "Daily Active Users peaked at 26.1K on June 08 before decreasing to 23.6K by the end of the month.",
       chart_type: "line",
       chart_data: fallbackOverview.engagement_trend.map(item => ({ date: item.date, dau: item.dau })),
       insights: [fallbackOverview.insights[1]],
       generated_query: "SELECT date, dau FROM daily_active_users ORDER BY date ASC LIMIT 60;",
-      follow_ups: ["Why is DAU decreasing?", "Show weekly active users (WAU) trend"]
+      follow_ups: ["Why is DAU decreasing?", "Show weekly active users (WAU) trend"],
+      key_findings: [
+        "DAU grew during the early June campaign to 26.1K.",
+        "A gradual week-over-week cooling reduced daily logins to 23.6K.",
+        "Android activity declined faster than iOS active user cohorts."
+      ],
+      root_cause: "Early June marketing campaign traffic cooling down combined with onboarding dropoff.",
+      business_impact: "Decreased active user base restricts premium subscription upgrade pipelines.",
+      recommendations: [
+        "Launch a re-engagement email campaign targeting dormant June cohorts.",
+        "Review app crash reporting logs for Android users."
+      ],
+      confidence_level: "Medium",
+      confidence_score: 84,
     };
   }
   
   if (topIntent === "funnelAnalysis") {
-    const weakest = minBy(fallbackOverview.funnel.slice(1), "conversion");
+    const weakest = fallbackOverview.funnel[2]; // Play Song
     return {
       question,
       intent: "Funnel Diagnosis",
+      metric_affected: "Activation Funnel Conversion",
       answer: `The largest cumulative drop happens before ${weakest.stage}, where only ${weakest.conversion}% of signup users remain in the journey.`,
       chart_type: "funnel",
       chart_data: fallbackOverview.funnel,
@@ -370,7 +443,20 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
         }
       ],
       generated_query: "SELECT stage, users, conversion_rate FROM activation_funnel ORDER BY stage_order ASC;",
-      follow_ups: ["Segment this funnel by acquisition channel", "Show drop-off by plan type", "What should we change in onboarding?"]
+      follow_ups: ["Segment this funnel by acquisition channel", "Show drop-off by plan type", "What should we change in onboarding?"],
+      key_findings: [
+        "Signup-to-Onboarding conversion is strong at 81%.",
+        "Onboarding-to-First Song Play is the core bottleneck, dropping to 58%.",
+        "Playlist creation (37%) and Playlist sharing (24%) represent secondary drop-off points."
+      ],
+      root_cause: "No default playlists or recommended tracks are loaded on first login, causing empty-state friction.",
+      business_impact: "Failing to play a song within the first hour of registration reduces Day 7 retention by 45 percentage points.",
+      recommendations: [
+        "Autoplay a personalized onboarding song station upon signup completion.",
+        "Add a prominent 'Quick Start' track recommendations panel on home page."
+      ],
+      confidence_level: "High",
+      confidence_score: 86,
     };
   }
   
@@ -384,6 +470,7 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     return {
       question,
       intent: "Acquisition Channels",
+      metric_affected: "Signup Conversions by Channel",
       answer: "Paid Ads drive the highest conversion rate at 24.2%, but Organic Search drives the largest absolute volume of active users (15.2K).",
       chart_type: "bar",
       chart_data: channels,
@@ -397,7 +484,20 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
         }
       ],
       generated_query: "SELECT channel, count(*), avg(conversion) FROM user_signups GROUP BY channel ORDER BY count(*) DESC;",
-      follow_ups: ["Show conversion trends by campaign", "What is the cost per acquisition (CAC)?"]
+      follow_ups: ["Show conversion trends by campaign", "What is the cost per acquisition (CAC)?"],
+      key_findings: [
+        "Paid search/ads convert at 24.2% efficiency.",
+        "Organic search brings in 15.2K users at 18.5% conversion.",
+        "Referral channels exhibit a 14.1% conversion rate."
+      ],
+      root_cause: "Targeted advertising copy aligns closely with user intent upon landing.",
+      business_impact: "Increasing paid search budget is highly capital-efficient for subscriber growth.",
+      recommendations: [
+        "Reallocate 15% of referral marketing budget into Paid Search campaigns.",
+        "A/B test landing page copy for organic search audience."
+      ],
+      confidence_level: "Medium",
+      confidence_score: 88,
     };
   }
   
@@ -405,6 +505,7 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     return {
       question,
       intent: "Revenue Analytics",
+      metric_affected: "Monthly Recurring Revenue (MRR)",
       answer: "MRR grew to $185.0K in June while churn improved to 3.6%, indicating expansion is outpacing customer loss.",
       chart_type: "line",
       chart_data: fallbackOverview.revenue_trend,
@@ -418,7 +519,20 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
         }
       ],
       generated_query: "SELECT month, mrr, arpu, churn_rate FROM revenue_metrics ORDER BY month ASC;",
-      follow_ups: ["Forecast next month MRR", "Show churn by customer segment", "Which features correlate with paid conversion?"]
+      follow_ups: ["Forecast next month MRR", "Show churn by customer segment", "Which features correlate with paid conversion?"],
+      key_findings: [
+        "MRR increased from $110K in January to $185K in June.",
+        "Average ARPU reached $21.1 per Premium user.",
+        "Net MRR retention is positive due to high upgrades."
+      ],
+      root_cause: "Expansion from Premium upgrades and family plan conversions outweighs monthly subscription cancelations.",
+      business_impact: "Positive net revenue retention supports long-term operating profit margin expansion.",
+      recommendations: [
+        "Launch high-value add-ons (Lossless Audio) to top-tier Premium subscribers.",
+        "Automate dunning emails to prevent involuntary churn on expired cards."
+      ],
+      confidence_level: "High",
+      confidence_score: 89,
     };
   }
   
@@ -426,6 +540,7 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     return {
       question,
       intent: "Churn Analysis",
+      metric_affected: "Subscriber Churn Rate",
       answer: "Monthly churn has steadily declined over the last five months, dropping from 4.8% in February to 3.6% in June.",
       chart_type: "line",
       chart_data: fallbackOverview.revenue_trend.map(item => ({ date: item.date, churn: item.churn })),
@@ -439,7 +554,20 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
         }
       ],
       generated_query: "SELECT month, churn_rate FROM revenue_metrics ORDER BY month ASC;",
-      follow_ups: ["Show churn by plan type", "What is the average customer lifetime value (LTV)?"]
+      follow_ups: ["Show churn by plan type", "What is the average customer lifetime value (LTV)?"],
+      key_findings: [
+        "Churn improved to 3.6% in June, a 25% relative reduction from February.",
+        "Upgraded payment processors reduced involuntary credit card failures.",
+        "Premium cohort exhibits lower churn than family subscription plans."
+      ],
+      root_cause: "Consistent updates to recommendation search engine increased overall time spent.",
+      business_impact: "Lower churn rate increases lifetime value (LTV) and boosts enterprise valuation.",
+      recommendations: [
+        "Trigger NPS survey alerts when a subscriber uses search less than twice weekly.",
+        "Introduce annual prepayment discounts to lock in sticky cohorts."
+      ],
+      confidence_level: "High",
+      confidence_score: 91,
     };
   }
   
@@ -453,6 +581,7 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     return {
       question,
       intent: "Feature Adoption",
+      metric_affected: "Weekly Feature Adoption",
       answer: "Playlists has the highest weekly adoption rate at 76%, followed closely by Smart Search at 68%. Lyrics Translation is the lowest at 42%.",
       chart_type: "bar",
       chart_data: adoption_data,
@@ -466,7 +595,20 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
         }
       ],
       generated_query: "SELECT feature, adoption_rate FROM feature_adoption ORDER BY adoption_rate DESC;",
-      follow_ups: ["Which onboarding step improves adoption?", "Show adoption of Offline Sync over time"]
+      follow_ups: ["Which onboarding step improves adoption?", "Show adoption of Offline Sync over time"],
+      key_findings: [
+        "Playlists adoption leads at 76% of active signups.",
+        "Smart Search is adopted by 68% of users.",
+        "Lyrics Translation exhibits low repeat usage (42% adoption)."
+      ],
+      root_cause: "Onboarding flow directs users directly to create a playlist upon signup.",
+      business_impact: "Feature adoption correlates directly with long-term subscription retention.",
+      recommendations: [
+        "Expose Playlists shortcuts on the home page dashboard.",
+        "Incorporate Lyrics search hints to drive Smart Search usage."
+      ],
+      confidence_level: "High",
+      confidence_score: 90,
     };
   }
   
@@ -480,6 +622,7 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     return {
       question,
       intent: "Engagement by Feature",
+      metric_affected: "Session duration by feature",
       answer: "Users spend the most time engaging with Playlists (averaging 14.5 minutes per session), compared to 11.2 minutes for Smart Search.",
       chart_type: "bar",
       chart_data: eng_data,
@@ -493,7 +636,20 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
         }
       ],
       generated_query: "SELECT feature, avg(session_duration) FROM feature_sessions GROUP BY feature ORDER BY avg(session_duration) DESC;",
-      follow_ups: ["Compare engagement by plan type", "Which feature leads to longest sessions?"]
+      follow_ups: ["Compare engagement by plan type", "Which feature leads to longest sessions?"],
+      key_findings: [
+        "Playlists sessions average 14.5 minutes.",
+        "Smart Search session interaction average is 11.2 minutes.",
+        "Lyrics Translation sessions remain short (6.4 minutes)."
+      ],
+      root_cause: "Playlist listening loops create passive continuous audio streams.",
+      business_impact: "High session duration drives ad conversions for Free users and retention for Premium users.",
+      recommendations: [
+        "Optimize playlist loading times to prevent stream abandonment.",
+        "Recommend similar albums when a playlist finishes playing."
+      ],
+      confidence_level: "Medium",
+      confidence_score: 87,
     };
   }
   
@@ -501,12 +657,26 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
   return {
     question,
     intent: "Product Health Overview",
+    metric_affected: "Product Health Portfolio",
     answer: "The product is growing revenue and retention, but engagement softened in late June. The highest priority is diagnosing the DAU decline while amplifying the Playlists retention loop.",
     chart_type: "table",
     chart_data: fallbackOverview.metrics,
     insights: fallbackOverview.insights,
     generated_query: "SELECT metric, value, delta FROM product_health_snapshot;",
-    follow_ups: ["Which feature has the highest retention?", "Why did engagement drop this week?", "Show MRR trend"]
+    follow_ups: ["Which feature has the highest retention?", "Why did engagement drop this week?", "Show MRR trend"],
+    key_findings: [
+      "MRR grew to $185K, representing solid financial growth.",
+      "Day 30 retention remains robust at an average of 81%.",
+      "Daily Active Users decreased by 3.0% over the last week."
+    ],
+    root_cause: "A combination of marketing campaign cooldown and minor latencies on onboarding step 3.",
+    business_impact: "Positive overall revenue progress, but softened engagement may create churn drag in future months.",
+    recommendations: [
+      "Address database latency during onboarding step 3.",
+      "Integrate smart search recommendations to enhance passive session lengths."
+    ],
+    confidence_level: "High",
+    confidence_score: 91,
   };
 }
 

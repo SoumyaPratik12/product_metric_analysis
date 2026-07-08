@@ -65,6 +65,8 @@ const sampleQuestions = [
   "Why did engagement decrease this week?",
   "Show revenue trend",
   "Where do users drop off in the funnel?",
+  "Compare Premium vs Free retention",
+  "Show Family retention",
 ];
 
 const metricLibraryData = [
@@ -112,6 +114,98 @@ const metricLibraryData = [
   },
 ];
 
+const richMetricDetails: Record<string, {
+  name: string;
+  category: string;
+  owner: string;
+  description: string;
+  formula: string;
+  currentVal: string;
+  prevVal: string;
+  trendText: string;
+  benchmarkTarget: string;
+  benchmarkAverage: string;
+  status: "Healthy" | "Needs Attention" | "Critical";
+  impactLevel: "High" | "Medium" | "Low";
+  businessMeaning: string;
+  businessImpact: string;
+  relatedMetrics: string[];
+  suggestedQuestions: string[];
+}> = {
+  "Daily Active Users": {
+    name: "Daily Active Users (DAU)",
+    category: "Engagement",
+    owner: "Core Product Team",
+    description: "The count of unique active users who played a song or logged in within a 24-hour cycle.",
+    formula: "COUNT(DISTINCT user_id) WHERE action_time >= TODAY()",
+    currentVal: "23,680",
+    prevVal: "24,410",
+    trendText: "↓ 3.0% vs Last Week",
+    benchmarkTarget: "25,000",
+    benchmarkAverage: "20,000",
+    status: "Needs Attention",
+    impactLevel: "High",
+    businessMeaning: "Direct measure of daily utility, user return rate, and active habit formation.",
+    businessImpact: "Higher DAU drives passive music streaming sessions, increases ad impressions for free tiers, and directly feeds premium upgrade conversion rates.",
+    relatedMetrics: ["Monthly Active Users (MAU)", "Session Duration", "Playlists Created"],
+    suggestedQuestions: ["Show me DAU over the last 60 days", "Why did engagement decrease this week?"],
+  },
+  "30-Day Retention": {
+    name: "30-Day User Retention",
+    category: "User Stickiness",
+    owner: "Retention & Cohorts Team",
+    description: "The percentage of new users who remain active exactly 30 days after signing up.",
+    formula: "(Active Cohort Users on Day 30 / Starting Cohort Size) * 100",
+    currentVal: "81%",
+    prevVal: "78%",
+    trendText: "↑ 3.4% vs Last Month",
+    benchmarkTarget: "80%",
+    benchmarkAverage: "74%",
+    status: "Healthy",
+    impactLevel: "High",
+    businessMeaning: "Primary indicator of product value validation and long-term user retention.",
+    businessImpact: "Higher retention decreases the customer acquisition cost (CAC) payback period, improves subscription lifetime value (LTV), and keeps MRR stable.",
+    relatedMetrics: ["Churn Risk", "Average Session Minutes", "Onboarding Conversion"],
+    suggestedQuestions: ["Which feature has the highest retention?", "Compare Premium vs Free retention"],
+  },
+  "Monthly Recurring Revenue": {
+    name: "Monthly Recurring Revenue (MRR)",
+    category: "Finance",
+    owner: "Finance & Monetization",
+    description: "Total predictable subscription payments generated monthly from active plans.",
+    formula: "SUM(monthly_price) WHERE subscription_status = 'active'",
+    currentVal: "$185.0K",
+    prevVal: "$166.0K",
+    trendText: "↑ 11.4% vs Last Month",
+    benchmarkTarget: "$180K",
+    benchmarkAverage: "$145K",
+    status: "Healthy",
+    impactLevel: "High",
+    businessMeaning: "Financial growth rate, expansion velocity, and paid user retention value.",
+    businessImpact: "MRR scales the artist payout budget, finances content catalogs, and establishes firm capital predictability for platform upgrades.",
+    relatedMetrics: ["Churn Risk", "ARPU (Average Revenue Per User)"],
+    suggestedQuestions: ["What is our MRR?", "Show revenue trend"],
+  },
+  "Churn Risk": {
+    name: "Subscriber Churn Rate",
+    category: "Revenue Retention",
+    owner: "Customer Operations",
+    description: "The rate at which active paying subscribers cancel or terminate their subscriptions.",
+    formula: "(Canceled subscribers in period / Active subscribers at start) * 100",
+    currentVal: "3.6%",
+    prevVal: "3.8%",
+    trendText: "↓ 0.2% vs Last Month (Lower is better)",
+    benchmarkTarget: "< 4.0%",
+    benchmarkAverage: "5.0%",
+    status: "Healthy",
+    impactLevel: "High",
+    businessMeaning: "Measures churn velocity and customer attrition.",
+    businessImpact: "Keeping churn low prevents MRR contraction, offsets customer acquisition budgets, and increases overall customer lifetime duration.",
+    relatedMetrics: ["Monthly Recurring Revenue (MRR)", "30-Day Retention"],
+    suggestedQuestions: ["What is our churn rate?", "Why are customers canceling?"],
+  }
+};
+
 export default function Home() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -130,6 +224,9 @@ export default function Home() {
   // Navigation & Page State
   const [inDemoMode, setInDemoMode] = useState(false);
   const [activeTab, setActiveTab] = useState("Landing");
+
+  // Selected KPI card for deep inspection drawer (v1.1 Richer Metric Context)
+  const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
   // Saved Reports & History
   const [savedReports, setSavedReports] = useState<Array<QueryResponse & { id: string; savedAt: string; isFavorite?: boolean }>>([]);
@@ -197,6 +294,7 @@ export default function Home() {
             { feature: "Smart Search", retention: 74, active_users: 35380 },
             { feature: "Offline Sync", retention: 69, active_users: 28220 },
             { feature: "Lyrics Translation", retention: 55, active_users: 36740 },
+            { feature: "Recommendations", retention: 69, active_users: 31200 },
           ];
         }
         if (reportData) {
@@ -453,7 +551,7 @@ export default function Home() {
           <WifiOff className="h-16 w-16 text-coral mx-auto animate-pulse" aria-hidden="true" />
           <h1 className="text-xl font-bold mt-6 text-pine">Connection Lost</h1>
           <p className="text-sm text-ink/75 mt-2 leading-relaxed">
-            You are currently offline. Product Metrics Explorer requires an active internet connection to synchronize with StreamFlow data channels.
+            Unable to connect. Using StreamFlow demo data. Please verify your connection setup.
           </p>
           <button
             onClick={() => setIsOffline(!navigator.onLine)}
@@ -622,13 +720,123 @@ export default function Home() {
   ];
 
   return (
-    <main className="min-h-screen text-ink bg-[#f6f8f5]" role="main">
+    <main className="min-h-screen text-ink bg-[#f6f8f5] relative" role="main">
       
       {/* 5. Demo Mode Banner */}
       {inDemoMode && (
         <div className="bg-pine text-white py-2 px-4 text-center text-xs font-bold flex items-center justify-center gap-2" role="banner">
           <Sparkles className="h-4 w-4 animate-spin-slow text-mint" />
           <span>Demo Mode: Showing sample StreamFlow analytics.</span>
+        </div>
+      )}
+
+      {/* Metric Inspector Side Drawer Overlay (v1.1 Richer Metric Context) */}
+      {selectedMetric && richMetricDetails[selectedMetric] && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-ink/30 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white shadow-2xl border-l border-ink/10 flex flex-col justify-between p-6 overflow-y-auto animate-slide-in">
+            <div className="pr-2">
+              <div className="flex items-center justify-between border-b border-ink/10 pb-4 mb-4">
+                <div>
+                  <span className="text-xs font-semibold text-pine uppercase tracking-wider">{richMetricDetails[selectedMetric].category}</span>
+                  <h2 className="text-lg font-bold mt-1 text-ink">{richMetricDetails[selectedMetric].name}</h2>
+                </div>
+                <button
+                  onClick={() => setSelectedMetric(null)}
+                  className="text-xs text-ink/50 hover:text-ink font-semibold border border-ink/10 px-2 py-1 rounded hover:bg-mist transition focus:ring-2 focus:ring-pine/20 outline-none"
+                >
+                  Close Drawer
+                </button>
+              </div>
+
+              <div className="space-y-5">
+                
+                {/* Trend Display */}
+                <div className="bg-mist/30 rounded-lg p-4 border border-ink/5">
+                  <p className="text-xs uppercase tracking-wider text-ink/50 font-bold">Trend Analysis</p>
+                  <p className="text-2xl font-bold mt-2 text-pine">{richMetricDetails[selectedMetric].currentVal}</p>
+                  <div className="flex justify-between text-xs text-ink/65 mt-2">
+                    <span>Previous: {richMetricDetails[selectedMetric].prevVal}</span>
+                    <span className="font-semibold text-pine">{richMetricDetails[selectedMetric].trendText}</span>
+                  </div>
+                </div>
+
+                {/* Status Benchmarks */}
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-ink/50 font-bold mb-2">Benchmarks & Status</p>
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="bg-mist p-2 rounded">
+                      <span className="block text-[10px] uppercase text-ink/50">Target</span>
+                      <span className="font-bold text-ink">{richMetricDetails[selectedMetric].benchmarkTarget}</span>
+                    </div>
+                    <div className="bg-mist p-2 rounded">
+                      <span className="block text-[10px] uppercase text-ink/50">Industry Avg</span>
+                      <span className="font-bold text-ink">{richMetricDetails[selectedMetric].benchmarkAverage}</span>
+                    </div>
+                    <div className={`p-2 rounded font-bold ${
+                      richMetricDetails[selectedMetric].status === "Healthy" ? "bg-mint text-pine" : "bg-gold/15 text-gold-700"
+                    }`}>
+                      <span className="block text-[10px] uppercase text-ink/50">Status</span>
+                      <span>{richMetricDetails[selectedMetric].status}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description & Formula */}
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-ink/50 font-bold mb-2">Definition & Computation</p>
+                  <p className="text-xs text-ink/75 leading-relaxed">{richMetricDetails[selectedMetric].description}</p>
+                  <div className="mt-2 bg-ink p-3 rounded-md overflow-x-auto text-[11px] font-mono text-mint">
+                    <code>{richMetricDetails[selectedMetric].formula}</code>
+                  </div>
+                </div>
+
+                {/* Business Impact */}
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-ink/50 font-bold mb-2">Business Value Impact</p>
+                  <div className="bg-mint/10 border border-pine/15 rounded-lg p-3 text-xs">
+                    <div className="flex justify-between font-semibold text-pine mb-1">
+                      <span>Impact Level</span>
+                      <span className="uppercase">{richMetricDetails[selectedMetric].impactLevel}</span>
+                    </div>
+                    <p className="text-ink/80 leading-relaxed mt-1">{richMetricDetails[selectedMetric].businessImpact}</p>
+                    <p className="text-ink/75 leading-relaxed mt-2 italic font-semibold">{richMetricDetails[selectedMetric].businessMeaning}</p>
+                  </div>
+                </div>
+
+                {/* Related Metrics */}
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-ink/50 font-bold mb-2">Related Metric Variables</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {richMetricDetails[selectedMetric].relatedMetrics.map(m => (
+                      <span key={m} className="text-[10px] bg-mist text-ink/70 px-2 py-0.5 rounded font-semibold border border-ink/5">{m}</span>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Drawer Actions */}
+            <div className="border-t border-ink/10 pt-4 mt-6 bg-white">
+              <p className="text-xs text-ink/50 font-semibold mb-2">Analyze in workspace:</p>
+              <div className="space-y-1.5">
+                {richMetricDetails[selectedMetric].suggestedQuestions.map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => {
+                      setQuery(q);
+                      setActiveTab("AI Chat");
+                      submitQuestion(q);
+                      setSelectedMetric(null);
+                    }}
+                    className="w-full text-left bg-mist hover:bg-mint hover:text-pine transition text-xs p-2 rounded truncate border border-ink/5 focus:ring-2 focus:ring-pine/20 outline-none"
+                  >
+                    "{q}"
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -786,13 +994,52 @@ export default function Home() {
               {/* Dashboard Tab */}
               {activeTab === "Dashboard" && (
                 <>
+                  {/* v1.1 Better Dashboard Layout: Overview -> Health Summary -> KPIs -> Charts -> Insights */}
+                  
+                  {/* Overview Snapshot */}
+                  <section className="bg-white border border-ink/10 rounded-lg p-5 shadow-panel" aria-label="StreamFlow Company Snapshot">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <span className="text-xs font-semibold text-pine uppercase tracking-wider">Company Profile</span>
+                        <h2 className="text-lg font-bold text-ink">StreamFlow Inc.</h2>
+                        <p className="text-xs text-ink/55 mt-0.5">Fictional Music Streaming SaaS platform launched in 2021, operating in 35 countries.</p>
+                      </div>
+                      <div className="flex flex-wrap gap-4 text-xs">
+                        <div className="border-r border-ink/10 pr-4 last:border-0">
+                          <span className="block text-[10px] uppercase text-ink/50">Total Users</span>
+                          <span className="font-bold text-pine">125,000</span>
+                        </div>
+                        <div className="border-r border-ink/10 pr-4 last:border-0">
+                          <span className="block text-[10px] uppercase text-ink/50">Premium Members</span>
+                          <span className="font-bold text-pine">38,000</span>
+                        </div>
+                        <div className="border-r border-ink/10 pr-4 last:border-0">
+                          <span className="block text-[10px] uppercase text-ink/50">Active Artists</span>
+                          <span className="font-bold text-pine">18,000</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Health Summary Banner */}
+                  <section className="bg-mint/30 border border-pine/20 rounded-lg p-4 flex items-center justify-between text-xs text-pine" aria-label="Health Summary">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <Gauge className="h-4 w-4" />
+                      <span>Health Status: <strong>Above Target</strong>. StreamFlow metrics exceed benchmark goals in 3 out of 4 indicators.</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-pine" />
+                      <span className="font-bold">Healthy Workspace</span>
+                    </div>
+                  </section>
+
                   <div className="flex items-center justify-between text-xs text-ink/55">
-                    <span>Today's Overview</span>
+                    <span>Key Performance Indicators (Click card to inspect metric)</span>
                     <span className="flex items-center gap-1.5"><RefreshCw className="h-3 w-3 animate-spin-slow" /> Updated 2 minutes ago</span>
                   </div>
 
                   {isLoadingOverview ? (
-                    // 3. Loading Skeletons for dashboard overview items
+                    // Loading Skeletons
                     <>
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <SkeletonTile />
@@ -807,12 +1054,18 @@ export default function Home() {
                     </>
                   ) : (
                     <>
+                      {/* KPIs Grid */}
                       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key Performance Indicators">
                         {(overview?.metrics ?? []).map((metric) => (
-                          <MetricTile key={metric.label} metric={metric} />
+                          <MetricTile
+                            key={metric.label}
+                            metric={metric}
+                            onClick={() => setSelectedMetric(metric.label)}
+                          />
                         ))}
                       </section>
 
+                      {/* Charts section */}
                       <section className="grid gap-4 xl:grid-cols-2" aria-label="Visual Trends">
                         <ChartPanel title="Retention by Feature" subtitle="30-day retained users">
                           <ResponsiveContainer width="100%" height="100%">
@@ -884,8 +1137,8 @@ export default function Home() {
                   <div className="rounded-lg border border-ink/10 bg-white p-4 shadow-panel">
                     <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className="text-sm font-semibold">AI Assistant Explorer</p>
-                        <p className="text-xs text-ink/58">Deterministic scoring classification</p>
+                        <p className="text-sm font-semibold">AI Assistant Explorer (v1.1 Decision-Support Engine)</p>
+                        <p className="text-xs text-ink/58">Deterministic scoring classification and diagnostic root cause analysis</p>
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -935,7 +1188,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Flow Layout: Summary ➔ Chart ➔ Insights ➔ Recommendation ➔ Suggested Follow-up Questions */}
+                  {/* Flow Layout: Summary ➔ Metric ➔ Chart ➔ Key Findings ➔ Root Cause ➔ Business Impact ➔ Recommendations ➔ Confidence ➔ Suggested Questions */}
                   {isAsking ? (
                     <div className="space-y-4">
                       <div className="min-h-24 bg-white border border-ink/10 rounded-lg p-5 animate-pulse flex flex-col gap-2">
@@ -948,11 +1201,25 @@ export default function Home() {
                   ) : answer ? (
                     <div className="space-y-4">
                       
-                      {/* 1. Summary Card */}
+                      {/* 1. Summary Card & Metric Affected & Confidence Badge */}
                       <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
-                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pine mb-3">
-                          <Bot className="h-4 w-4" />
-                          Summary ({answer.intent})
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/10 pb-3 mb-3">
+                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-pine">
+                            <Bot className="h-4 w-4" />
+                            Summary ({answer.intent})
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {answer.metric_affected && (
+                              <span className="text-[10px] bg-mint text-pine font-bold px-2 py-0.5 rounded">
+                                Metric: {answer.metric_affected}
+                              </span>
+                            )}
+                            <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${
+                              answer.confidence_level === "High" ? "bg-pine/12 text-pine" : "bg-gold/15 text-gold-700"
+                            }`}>
+                              Confidence: {answer.confidence_level ?? "High"} ({answer.confidence_score ?? 91}%)
+                            </span>
+                          </div>
                         </div>
                         <p className="text-sm leading-6 text-ink/82">{answer.answer}</p>
                       </div>
@@ -975,16 +1242,50 @@ export default function Home() {
                         </details>
                       </div>
 
-                      {/* 3. Insights and 4. Recommendation Cards */}
-                      {answer.insights.length > 0 && (
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          {answer.insights.map((insight) => (
-                            <InsightCard key={insight.title} insight={insight} />
-                          ))}
+                      {/* 3. Key Findings */}
+                      {answer.key_findings && answer.key_findings.length > 0 && (
+                        <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-ink/55 mb-3">Key Findings</p>
+                          <ul className="space-y-2 text-xs text-ink/75 list-disc list-inside">
+                            {answer.key_findings.map((item, idx) => (
+                              <li key={idx} className="leading-relaxed">{item}</li>
+                            ))}
+                          </ul>
                         </div>
                       )}
 
-                      {/* 5. Suggested Follow-up Questions */}
+                      {/* 4. Root Cause Callout Box */}
+                      {answer.root_cause && (
+                        <div className="rounded-lg border border-coral/20 bg-coral/5 p-5 shadow-panel">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-coral mb-2">Root Cause Analysis</p>
+                          <p className="text-sm leading-relaxed text-ink/82">{answer.root_cause}</p>
+                        </div>
+                      )}
+
+                      {/* 5. Business Impact Details */}
+                      {answer.business_impact && (
+                        <div className="rounded-lg border border-gold/30 bg-gold/10 p-5 shadow-panel">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gold-700 mb-2">Business Impact & Outcomes</p>
+                          <p className="text-sm leading-relaxed text-ink/82">{answer.business_impact}</p>
+                        </div>
+                      )}
+
+                      {/* 6. Action Recommendations */}
+                      {answer.recommendations && answer.recommendations.length > 0 && (
+                        <div className="rounded-lg border border-pine/20 bg-mint/10 p-5 shadow-panel">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-pine mb-3">Action Recommendations</p>
+                          <ul className="space-y-2 text-xs text-ink/75">
+                            {answer.recommendations.map((rec, idx) => (
+                              <li key={idx} className="flex gap-2 items-start leading-relaxed">
+                                <CheckCircle2 className="h-4 w-4 text-pine mt-0.5 shrink-0" />
+                                <span>{rec}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* 7. Suggested Questions */}
                       <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
                         <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">Suggested Follow-up Questions</p>
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -1048,7 +1349,8 @@ export default function Home() {
                     {savedReports.length === 0 ? (
                       <div className="mt-6 text-center border border-dashed border-ink/10 py-12 rounded bg-mist/10">
                         <FileText className="h-8 w-8 text-ink/30 mx-auto" />
-                        <p className="text-xs text-ink/55 mt-2">No saved reports yet.</p>
+                        <p className="text-sm font-bold mt-2">No Reports Yet</p>
+                        <p className="text-xs text-ink/55 mt-1">Ask your first AI question to create your first report.</p>
                         <button
                           onClick={() => setActiveTab("AI Chat")}
                           className="mt-4 inline-flex h-9 items-center justify-center rounded-md bg-pine px-4 text-xs font-semibold text-white hover:bg-pine/90 focus:ring-2 focus:ring-pine/20 outline-none"
@@ -1107,6 +1409,15 @@ export default function Home() {
                               )}
                               
                               <p className="text-xs text-ink/70 mt-1 leading-relaxed">{saved.answer}</p>
+                              
+                              {/* v1.1 Report Metadata */}
+                              <div className="flex flex-wrap gap-4 text-[10px] text-ink/45 mt-3 border-t border-ink/5 pt-2">
+                                <span>Report: Weekly Product Report</span>
+                                <span>Created: July 8</span>
+                                <span>Metrics: Retention, MRR, DAU</span>
+                                <span>Status: Saved</span>
+                                <span>Version: 1.1</span>
+                              </div>
                             </div>
 
                             <div className="h-48 mt-4 bg-white rounded border border-ink/10 p-3">
@@ -1437,8 +1748,12 @@ FastAPI (Render) ── verifies JWT (Supabase JWKS) ── resolves workspace_i
                       <div className="flex gap-2 items-start">
                         <TrendingUp className="h-4 w-4 text-pine mt-0.5" />
                         <div>
-                          <p className="text-xs font-semibold text-pine">MRR increased 10%</p>
-                          <p className="text-[11px] text-ink/70 mt-0.5">Net of expansion and churn, revenue reached $185.0K. Confidence: 94%</p>
+                          <div className="flex justify-between items-center">
+                            <p className="text-xs font-semibold text-pine">MRR increased 10%</p>
+                            <span className="text-[10px] bg-pine/10 text-pine px-1 rounded font-semibold">Priority: High</span>
+                          </div>
+                          <p className="text-[11px] text-ink/70 mt-1">Net of expansion and churn, revenue reached $185.0K. Confidence: 94%</p>
+                          <p className="text-[10px] text-pine font-medium mt-1">Recommended Action: Optimize expansion prompts.</p>
                         </div>
                       </div>
                     </div>
@@ -1446,8 +1761,12 @@ FastAPI (Render) ── verifies JWT (Supabase JWKS) ── resolves workspace_i
                       <div className="flex gap-2 items-start">
                         <TrendingDown className="h-4 w-4 text-coral mt-0.5" />
                         <div>
-                          <p className="text-xs font-semibold text-coral">Retention dropped by 8%</p>
-                          <p className="text-[11px] text-ink/70 mt-0.5">Possible reason: Users abandoned onboarding after Step 3. Confidence: 91%</p>
+                          <div className="flex justify-between items-center">
+                            <p className="text-xs font-semibold text-coral">Retention decreased 8%</p>
+                            <span className="text-[10px] bg-coral/10 text-coral px-1 rounded font-semibold">Priority: High</span>
+                          </div>
+                          <p className="text-[11px] text-ink/70 mt-1">Possible reason: Users abandoned onboarding after Step 3. Confidence: 91%</p>
+                          <p className="text-[10px] text-coral font-medium mt-1">Recommended Action: Improve onboarding Step 3.</p>
                         </div>
                       </div>
                     </div>
@@ -1455,8 +1774,12 @@ FastAPI (Render) ── verifies JWT (Supabase JWKS) ── resolves workspace_i
                       <div className="flex gap-2 items-start">
                         <Sparkles className="h-4 w-4 text-gold mt-0.5" />
                         <div>
-                          <p className="text-xs font-semibold text-pine">Playlists adoption is highest</p>
-                          <p className="text-[11px] text-ink/70 mt-0.5">Playlists usage remains the strongest catalyst for Day 30 user habits. Confidence: 92%</p>
+                          <div className="flex justify-between items-center">
+                            <p className="text-xs font-semibold text-pine">Playlists adoption is highest</p>
+                            <span className="text-[10px] bg-gold/25 text-gold-700 px-1 rounded font-semibold">Priority: High</span>
+                          </div>
+                          <p className="text-[11px] text-ink/70 mt-1">Playlists usage remains the strongest catalyst for Day 30 user habits. Confidence: 92%</p>
+                          <p className="text-[10px] text-pine font-medium mt-1">Recommended Action: Expose playlist creator on first-run.</p>
                         </div>
                       </div>
                     </div>
@@ -1537,13 +1860,26 @@ FastAPI (Render) ── verifies JWT (Supabase JWKS) ── resolves workspace_i
   );
 }
 
-function MetricTile({ metric }: { metric: MetricCard }) {
+function MetricTile({ metric, onClick }: { metric: MetricCard; onClick?: () => void }) {
   const isDown = metric.trend === "down";
   const Icon = isDown ? TrendingDown : TrendingUp;
   return (
-    <article className="min-h-32 rounded-lg border border-ink/10 bg-white p-4 shadow-panel flex flex-col justify-between">
+    <article
+      onClick={onClick}
+      className="min-h-32 rounded-lg border border-ink/10 bg-white p-4 shadow-panel flex flex-col justify-between cursor-pointer hover:border-pine/40 hover:shadow-md transition focus-within:ring-2 focus-within:ring-pine/20 outline-none"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === "Enter" || e.key === " ")) {
+          onClick();
+        }
+      }}
+      title={`Click to inspect details for ${metric.label}`}
+    >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">{metric.label}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">{metric.label}</p>
+          <Info className="h-3.5 w-3.5 text-ink/30" />
+        </div>
         <div className={`grid h-8 w-8 place-items-center rounded-md ${isDown ? "bg-coral/12 text-coral" : "bg-mint text-pine"}`}>
           <Icon className="h-4 w-4" />
         </div>
@@ -1557,7 +1893,7 @@ function MetricTile({ metric }: { metric: MetricCard }) {
   );
 }
 
-// 3. Loading Skeletons Components
+// Loading Skeletons Components
 function SkeletonTile() {
   return (
     <div className="min-h-32 rounded-lg border border-ink/10 bg-white p-4 shadow-panel animate-pulse flex flex-col justify-between">
