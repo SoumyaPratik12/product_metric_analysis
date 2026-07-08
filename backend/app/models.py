@@ -55,6 +55,8 @@ class QueryResponse(BaseModel):
     recommendations: list[str] | None = None
     confidence_level: Literal["High", "Medium", "Low"] | None = None
     confidence_score: int | None = None
+    selected_dataset: str | None = None
+    extracted_entities: str | None = None
 
 
 class Integration(BaseModel):

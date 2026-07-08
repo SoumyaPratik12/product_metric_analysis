@@ -64,109 +64,91 @@ AMBIGUITY_MARGIN = 1.0       # top two scores closer than this: ambiguous
 
 INTENTS = [
     Intent(
-        name="retention_by_feature",
-        function="retentionByFeature",
-        keywords={"retention": 3, "retain": 3, "retained": 3},
+        name="search_analytics",
+        function="searchKeywordAnalysis",
+        keywords={"keyword": 4, "search": 3, "searches": 3.5, "find": 2, "typed": 2, "search bar": 4},
         phrases=[
-            r"which feature.*(highest|best|most).*retention",
-            r"retention by feature",
-            r"feature.*retention",
-        ],
-        # Fixes the exact bug class you likely have: a plan-comparison
-        # question mentioning "retention" must not win this intent.
-        negative_keywords={"premium": 2.5, "free": 2.5, "plan": 2, "vs": 1.5, "versus": 1.5},
-        param_extractors={"window": extract_retention_window},
+            r"most.*search",
+            r"search.*keyword",
+            r"searches.*no result",
+            r"search.*fail.*find"
+        ]
     ),
     Intent(
-        name="plan_comparison",
-        function="planComparison",
-        keywords={"premium": 3, "free": 2.5, "compare": 2, "vs": 2, "versus": 2},
-        phrases=[r"compare.*(premium|free)", r"(premium|free).*vs.*(premium|free)"],
-        param_extractors={"metric": extract_plan_metric},
-    ),
-    Intent(
-        name="engagement_drop",
-        function="engagementDropDiagnosis",
-        keywords={"drop": 3, "decrease": 3, "why": 2.5, "declin": 2.5, "fell": 2},
+        name="genre_analytics",
+        function="genreAnalytics",
+        keywords={"genre": 4, "genres": 4, "pop": 2, "rock": 2, "hip hop": 2, "electronic": 2, "bollywood": 2},
         phrases=[
-            r"why (did|is|has).*(drop|decreas|declin|fell)",
-            r"engagement.*(drop|down|fell)",
-        ],
-    ),
-    Intent(
-        name="dau_trend",
-        function="dauTrend",
-        keywords={"dau": 3, "daily active": 3, "trend": 1.5, "over time": 1.5, "60 days": 2},
-        phrases=[r"dau.*(last|past|over)", r"daily active users.*(trend|last|past)"],
-        # A "why did DAU drop" question is a diagnosis, not a raw trend --
-        # penalize this intent when "why"/"drop" are present.
-        negative_keywords={"why": 2.5, "drop": 2},
-    ),
-    Intent(
-        name="funnel",
-        function="funnelAnalysis",
-        keywords={"funnel": 3, "drop off": 3, "dropoff": 3, "checkout": 2, "conversion": 1.5},
-        phrases=[r"where.*(drop off|dropoff|do users leave)", r"funnel"],
-    ),
-    Intent(
-        name="acquisition",
-        function="acquisitionChannels",
-        keywords={"channel": 3, "acquisition": 3, "campaign": 3, "convert": 1.5, "source": 1.5},
-        phrases=[r"(best|top).*channel", r"acquisition channel", r"(best|top).*campaign"],
-    ),
-    Intent(
-        name="revenue",
-        function="revenueMetrics",
-        keywords={"mrr": 3, "arpu": 3, "ltv": 3, "revenue": 2},
-        phrases=[r"\b(mrr|arpu|ltv)\b", r"revenue metrics"],
-        # "which feature increases revenue" or "premium vs free revenue"
-        # belong to other intents -- don't let bare "revenue" steal those.
-        negative_keywords={"premium": 1.5, "free": 1.5, "feature": 1.5},
-    ),
-    Intent(
-        name="churn",
-        function="churnAnalysis",
-        keywords={"churn": 3, "cancel": 2},
-        phrases=[r"churn rate", r"why.*(people|users|customers).*(leav|cancel)"],
-    ),
-    Intent(
-        name="feature_adoption",
-        function="featureAdoption",
-        keywords={"adoption": 3, "most popular": 2.5, "least used": 2.5},
-        phrases=[r"(most|highest) (popular|adopt)", r"weekly adoption"],
-        negative_keywords={"retention": 2.5},
-    ),
-    Intent(
-        name="engagement_by_feature",
-        function="engagementByFeature",
-        keywords={"session": 2, "active users": 2, "most active": 3},
-        phrases=[r"(average|avg) session", r"most active"],
-        negative_keywords={"drop": 2.5, "why": 2},
-    ),
-    Intent(
-        name="genre_country_analytics",
-        function="genreCountryAnalysis",
-        keywords={"genre": 4, "country": 3, "music": 1.5, "genre country": 4},
-        phrases=[r"most.*genre.*country", r"genre.*country", r"genre.*wise"],
+            r"growing.*fastest.*genre",
+            r"most popular genre",
+            r"compare.*genre",
+            r"genre.*retention",
+            r"genre.*convert.*premium"
+        ]
     ),
     Intent(
         name="language_analytics",
         function="languageAnalysis",
-        keywords={"language": 4, "languages": 4, "listen": 2.5, "listened": 2.5},
-        phrases=[r"which language", r"most.*language", r"language.*listened"],
+        keywords={"language": 4, "languages": 4, "hindi": 2.5, "english": 2.5, "spanish": 2.5, "streamed": 2},
+        phrases=[
+            r"language.*stream",
+            r"compare.*hindi.*english",
+            r"language.*grown",
+            r"highest.*listening time.*language"
+        ]
     ),
     Intent(
-        name="search_keyword_analytics",
-        function="searchKeywordAnalysis",
-        keywords={"keyword": 4, "search bar": 3.5, "typed": 3, "search": 2},
-        phrases=[r"common keyword", r"typed.*search", r"search.*keyword"],
+        name="subscription_analytics",
+        function="subscriptionAnalytics",
+        keywords={"free": 3, "premium": 3.5, "subscription": 3, "plan": 2.5, "revenue": 2, "convert": 2},
+        phrases=[
+            r"percentage.*free",
+            r"percentage.*premium",
+            r"country.*highest.*premium conversion",
+            r"plan.*generate.*revenue"
+        ]
     ),
     Intent(
-        name="plan_distribution_analytics",
-        function="planDistributionAnalysis",
-        keywords={"freemium": 4, "paid subscription": 3.5, "percentage of user": 3, "percentage": 2.5, "premium vs free": 3},
-        phrases=[r"how many.*freemium", r"percentage.*paid subscription", r"users.*freemium"],
+        name="recommendation_analytics",
+        function="recommendationAnalytics",
+        keywords={"recommendation": 4, "recommend": 4, "ctr": 3, "click-through": 3, "skipped": 2.5, "algorithm": 3},
+        phrases=[
+            r"recommendation.*ctr",
+            r"recommend.*song.*skip",
+            r"recommendation algorithm"
+        ]
     ),
+    Intent(
+        name="listening_behaviour",
+        function="listeningBehaviour",
+        keywords={"skipped": 3.5, "skip": 3, "artist": 3, "artists": 3.5, "playlist": 3, "playlists": 3.5, "binge": 3},
+        phrases=[
+            r"song.*skip.*most",
+            r"artist.*increase.*listening time",
+            r"playlist.*improve.*retention",
+            r"binge-listen"
+        ]
+    ),
+    Intent(
+        name="geography_analytics",
+        function="geographyAnalytics",
+        keywords={"country": 3.5, "city": 3, "state": 3, "geographic": 2.5, "india": 2, "usa": 2},
+        phrases=[
+            r"country.*stream.*most",
+            r"city.*highest.*premium",
+            r"compare.*india.*usa"
+        ]
+    ),
+    Intent(
+        name="time_analytics",
+        function="timeAnalytics",
+        keywords={"time": 3, "hour": 3.5, "morning": 2.5, "evening": 2.5, "weekend": 3, "weekday": 3, "peak": 3.5},
+        phrases=[
+            r"peak listening hour",
+            r"weekend.*weekday",
+            r"time.*premium.*listen"
+        ]
+    )
 ]
 
 

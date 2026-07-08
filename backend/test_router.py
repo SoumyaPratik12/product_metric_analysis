@@ -16,49 +16,47 @@ from app.nlp.router import route
 # "ambiguous"/"low_confidence"/"no_match" are valid expected outcomes too --
 # a correctly-refused question is a PASS, not a failure.
 LABELED_SET = [
-    # retention_by_feature
-    ("Which feature has the highest retention?", "retentionByFeature"),
-    ("Show retention by feature", "retentionByFeature"),
-    ("What's our day 30 retention for each feature?", "retentionByFeature"),
-    ("Which feature retains users the most?", "retentionByFeature"),
+    # searchKeywordAnalysis
+    ("What is the most searched keyword?", "searchKeywordAnalysis"),
+    ("Which searches return no results?", "searchKeywordAnalysis"),
+    ("What do users search for in India?", "searchKeywordAnalysis"),
+    ("Which keyword is growing this month?", "searchKeywordAnalysis"),
 
-    # plan_comparison -- these SHOULD NOT go to retention_by_feature
-    ("Compare retention between Premium and Free users", "planComparison"),
-    ("How does premium vs free retention look?", "planComparison"),
-    ("Do premium users have better session length than free?", "planComparison"),
+    # genreAnalytics
+    ("Which genre is most popular in Germany?", "genreAnalytics"),
+    ("Compare Pop vs Rock listening time.", "genreAnalytics"),
+    ("Which genre has the highest retention?", "genreAnalytics"),
+    ("Which genre converts users to Premium?", "genreAnalytics"),
 
-    # engagement_drop -- these SHOULD NOT go to dau_trend
-    ("Why did engagement drop this week?", "engagementDropDiagnosis"),
-    ("Why is DAU decreasing?", "engagementDropDiagnosis"),
-    ("What caused the drop in daily active users?", "engagementDropDiagnosis"),
+    # languageAnalysis
+    ("Which language is streamed the most?", "languageAnalysis"),
+    ("Compare Hindi vs English.", "languageAnalysis"),
+    ("Which language has grown this month?", "languageAnalysis"),
 
-    # dau_trend -- plain trend request, no "why"
-    ("Show me DAU over the last 60 days", "dauTrend"),
-    ("What's the daily active users trend?", "dauTrend"),
+    # subscriptionAnalytics
+    ("What percentage of users are Free?", "subscriptionAnalytics"),
+    ("What percentage of users are Premium?", "subscriptionAnalytics"),
+    ("Which plan generates the most revenue?", "subscriptionAnalytics"),
 
-    # funnel
-    ("Where do users drop off in the funnel?", "funnelAnalysis"),
-    ("Show checkout conversion funnel", "funnelAnalysis"),
+    # recommendationAnalytics
+    ("Which recommendations have the highest click-through rate?", "recommendationAnalytics"),
+    ("Which recommended songs are skipped?", "recommendationAnalytics"),
+    ("Which recommendation algorithm performs best?", "recommendationAnalytics"),
 
-    # acquisition
-    ("Which acquisition channel converts best?", "acquisitionChannels"),
-    ("Best campaign for new users?", "acquisitionChannels"),
+    # listeningBehaviour
+    ("Which songs are skipped most?", "listeningBehaviour"),
+    ("Which artists increase listening time?", "listeningBehaviour"),
+    ("Which playlists improve retention?", "listeningBehaviour"),
 
-    # revenue -- should not be stolen by feature/plan questions
-    ("What's our MRR?", "revenueMetrics"),
-    ("Show ARPU and LTV", "revenueMetrics"),
+    # geographyAnalytics
+    ("Which country streams the most music?", "geographyAnalytics"),
+    ("Which city has the highest Premium adoption?", "geographyAnalytics"),
+    ("Compare India vs USA.", "geographyAnalytics"),
 
-    # churn
-    ("What's our churn rate and why are people leaving?", "churnAnalysis"),
-    ("Why are customers canceling?", "churnAnalysis"),
-
-    # feature_adoption -- should not be stolen by retention
-    ("Which feature has the highest weekly adoption?", "featureAdoption"),
-    ("What's our most popular feature?", "featureAdoption"),
-
-    # engagement_by_feature
-    ("Which users are most active?", "engagementByFeature"),
-    ("Average session duration by feature?", "engagementByFeature"),
+    # timeAnalytics
+    ("Peak listening hour.", "timeAnalytics"),
+    ("Weekend vs weekday.", "timeAnalytics"),
+    ("What time do Premium users listen to music?", "timeAnalytics"),
 
     # Deliberately vague / out-of-scope -- MUST NOT silently guess
     ("how's it going", "no_match"),

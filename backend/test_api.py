@@ -65,8 +65,8 @@ try:
         ans_data = json.loads(res.read().decode())
         print("Intent matched:", ans_data["intent"])
         print("Chart type:", ans_data["chart_type"])
-        assert ans_data["intent"] == "Revenue Analytics"
-        assert ans_data["chart_type"] == "line"
+        assert ans_data["intent"] == "Subscription Analytics"
+        assert ans_data["chart_type"] == "funnel"
 
     print("\nTesting CSV upload and Excel formula injection protection...")
     # CSV content containing a formula injection cell: `=SUM(1,2)`

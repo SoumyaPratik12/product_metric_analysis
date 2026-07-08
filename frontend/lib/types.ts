@@ -41,6 +41,8 @@ export type QueryResponse = {
   recommendations?: string[];
   confidence_level?: "High" | "Medium" | "Low";
   confidence_score?: number;
+  selected_dataset?: string;
+  extracted_entities?: string;
 };
 
 export type Integration = {

@@ -147,107 +147,59 @@ function extractRetentionWindow(q: string): string | null {
 
 const INTENTS: Intent[] = [
   {
-    name: "retention_by_feature",
-    functionName: "retentionByFeature",
-    keywords: { retention: 3, retain: 3, retained: 3 },
-    phrases: [
-      /which feature.*(highest|best|most).*retention/,
-      /retention by feature/,
-      /feature.*retention/
-    ],
-    negativeKeywords: { premium: 2.5, free: 2.5, plan: 2, vs: 1.5, versus: 1.5 },
-    paramExtractors: { window: extractRetentionWindow }
+    name: "search_analytics",
+    functionName: "searchKeywordAnalysis",
+    keywords: { keyword: 4, search: 3, searches: 3.5, find: 2, typed: 2, "search bar": 4 },
+    phrases: [/most.*search/, /search.*keyword/, /searches.*no result/, /search.*fail.*find/],
+    negativeKeywords: {}
   },
   {
-    name: "plan_comparison",
-    functionName: "planComparison",
-    keywords: { premium: 3, free: 2.5, compare: 2, vs: 2, versus: 2, student: 2, family: 2 },
-    phrases: [/compare.*(premium|free|student|family)/, /(premium|free|student|family).*vs.*(premium|free|student|family)/],
-    negativeKeywords: { feature: 2, notes: 2, play: 1.5, search: 1.5 },
-    paramExtractors: { metric: extractPlanMetric }
-  },
-  {
-    name: "engagement_drop",
-    functionName: "engagementDropDiagnosis",
-    keywords: { drop: 3.5, decrease: 3, decline: 3, down: 2, engagement: 2, dau: 2 },
-    phrases: [/why.*engagement.*(dropped|decreased)/, /why.*dau.*(decreasing|falling|down)/],
-    negativeKeywords: { revenue: 3, mrr: 3, conversion: 2, funnel: 2 }
-  },
-  {
-    name: "dau_trend",
-    functionName: "dauTrend",
-    keywords: { trend: 3, dau: 3.5, user: 1.5, active: 1.5, daily: 2 },
-    phrases: [/show.*dau/, /dau trend/, /daily active users/],
-    negativeKeywords: { why: 3, drop: 2.5, decrease: 2.5, decline: 2.5 }
-  },
-  {
-    name: "funnel",
-    functionName: "funnelAnalysis",
-    keywords: { funnel: 4, dropoff: 3, stage: 2, conversion: 2.5, signup: 1.5 },
-    phrases: [/show.*funnel/, /where.*drop.*off/, /funnel analysis/],
-    negativeKeywords: { revenue: 3.5, mrr: 3.5 }
-  },
-  {
-    name: "acquisition",
-    functionName: "acquisitionChannels",
-    keywords: { channel: 3, campaign: 3.5, acquisition: 3, organic: 2, paid: 2 },
-    phrases: [/which channel/, /acquisition campaign/],
-    negativeKeywords: { retention: 3, revenue: 3, mrr: 3 }
-  },
-  {
-    name: "revenue",
-    functionName: "revenueMetrics",
-    keywords: { mrr: 4, revenue: 3.5, arpu: 3, sales: 2 },
-    phrases: [/show.*mrr/, /revenue trend/, /financial overview/],
-    negativeKeywords: { retention: 3, funnel: 3, cohort: 2 }
-  },
-  {
-    name: "churn",
-    functionName: "churnAnalysis",
-    keywords: { churn: 4, cancel: 3.5, cancelation: 3, leaving: 2 },
-    phrases: [/why.*cancel/, /churn rate/],
-    negativeKeywords: { feature: 2, notes: 2, playlists: 2 }
-  },
-  {
-    name: "feature_adoption",
-    functionName: "featureAdoption",
-    keywords: { adoption: 4, popular: 3, adopt: 3, usage: 1.5 },
-    phrases: [/most popular feature/, /feature adoption/],
-    negativeKeywords: { retention: 3.5, churn: 3.5 }
-  },
-  {
-    name: "engagement_by_feature",
-    functionName: "engagementByFeature",
-    keywords: { active: 3, engagement: 2.5, duration: 3, session: 3 },
-    phrases: [/average session.*feature/, /active users.*feature/],
-    negativeKeywords: { plan: 3.5, premium: 3.5 }
-  },
-  {
-    name: "genre_country_analytics",
-    functionName: "genreCountryAnalysis",
-    keywords: { genre: 4, country: 3, music: 1.5 },
-    phrases: [/most.*genre.*country/, /genre.*country/, /genre.*wise/],
+    name: "genre_analytics",
+    functionName: "genreAnalytics",
+    keywords: { genre: 4, genres: 4, pop: 2, rock: 2, electronic: 2, bollywood: 2 },
+    phrases: [/growing.*fastest.*genre/, /most popular genre/, /compare.*genre/, /genre.*retention/, /genre.*convert.*premium/],
     negativeKeywords: {}
   },
   {
     name: "language_analytics",
     functionName: "languageAnalysis",
-    keywords: { language: 4, languages: 4, listen: 2.5, listened: 2.5 },
-    phrases: [/which language/, /most.*language/, /language.*listened/],
+    keywords: { language: 4, languages: 4, hindi: 2.5, english: 2.5, spanish: 2.5, streamed: 2 },
+    phrases: [/language.*stream/, /compare.*hindi.*english/, /language.*grown/, /highest.*listening time.*language/],
     negativeKeywords: {}
   },
   {
-    name: "search_keyword_analytics",
-    functionName: "searchKeywordAnalysis",
-    keywords: { keyword: 4, typed: 3, search: 2 },
-    phrases: [/common keyword/, /typed.*search/, /search.*keyword/],
+    name: "subscription_analytics",
+    functionName: "subscriptionAnalytics",
+    keywords: { free: 3, premium: 3.5, subscription: 3, plan: 2.5, revenue: 2, convert: 2 },
+    phrases: [/percentage.*free/, /percentage.*premium/, /country.*highest.*premium conversion/, /plan.*generate.*revenue/],
     negativeKeywords: {}
   },
   {
-    name: "plan_distribution_analytics",
-    functionName: "planDistributionAnalysis",
-    keywords: { freemium: 4, subscription: 3.5, percentage: 3, premium: 2, free: 2 },
-    phrases: [/how many.*freemium/, /percentage.*paid subscription/, /users.*freemium/],
+    name: "recommendation_analytics",
+    functionName: "recommendationAnalytics",
+    keywords: { recommendation: 4, recommend: 4, ctr: 3, "click-through": 3, skipped: 2.5, algorithm: 3 },
+    phrases: [/recommendation.*ctr/, /recommend.*song.*skip/, /recommendation algorithm/],
+    negativeKeywords: {}
+  },
+  {
+    name: "listening_behaviour",
+    functionName: "listeningBehaviour",
+    keywords: { skipped: 3.5, skip: 3, artist: 3, artists: 3.5, playlist: 3, playlists: 3.5, binge: 3 },
+    phrases: [/song.*skip.*most/, /artist.*increase.*listening time/, /playlist.*improve.*retention/, /binge-listen/],
+    negativeKeywords: {}
+  },
+  {
+    name: "geography_analytics",
+    functionName: "geographyAnalytics",
+    keywords: { country: 3.5, city: 3, state: 3, geographic: 2.5, india: 2, usa: 2 },
+    phrases: [/country.*stream.*most/, /city.*highest.*premium/, /compare.*india.*usa/],
+    negativeKeywords: {}
+  },
+  {
+    name: "time_analytics",
+    functionName: "timeAnalytics",
+    keywords: { time: 3, hour: 3.5, morning: 2.5, evening: 2.5, weekend: 3, weekday: 3, peak: 3.5 },
+    phrases: [/peak listening hour/, /weekend.*weekday/, /time.*premium.*listen/],
     negativeKeywords: {}
   }
 ];
@@ -285,30 +237,40 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
   
   if (topScore <= 1.5) {
     // Dynamic keyword search to always resolve
-    if (q.includes("genre") || q.includes("country")) {
-      topIntent = "genreCountryAnalysis";
+    if (q.includes("genre")) {
+      topIntent = "genreAnalytics";
     } else if (q.includes("language") || q.includes("languages")) {
       topIntent = "languageAnalysis";
     } else if (q.includes("keyword") || q.includes("search")) {
       topIntent = "searchKeywordAnalysis";
-    } else if (q.includes("freemium") || q.includes("premium") || q.includes("paid")) {
-      topIntent = "planDistributionAnalysis";
+    } else if (q.includes("freemium") || q.includes("premium") || q.includes("paid") || q.includes("subscription")) {
+      topIntent = "subscriptionAnalytics";
+    } else if (q.includes("recommend") || q.includes("algorithm") || q.includes("ctr")) {
+      topIntent = "recommendationAnalytics";
+    } else if (q.includes("skip") || q.includes("artist") || q.includes("playlist") || q.includes("binge")) {
+      topIntent = "listeningBehaviour";
+    } else if (q.includes("country") || q.includes("city") || q.includes("usa") || q.includes("india")) {
+      topIntent = "geographyAnalytics";
+    } else if (q.includes("time") || q.includes("hour") || q.includes("weekend") || q.includes("weekday")) {
+      topIntent = "timeAnalytics";
     } else if (q.includes("retention") || q.includes("retain")) {
-      topIntent = "retentionByFeature";
+      topIntent = "genreAnalytics";
     } else if (q.includes("mrr") || q.includes("revenue")) {
-      topIntent = "revenueMetrics";
+      topIntent = "subscriptionAnalytics";
     } else if (q.includes("churn")) {
-      topIntent = "churnAnalysis";
+      topIntent = "subscriptionAnalytics";
     } else if (q.includes("dau") || q.includes("active")) {
-      topIntent = "dauTrend";
+      topIntent = "geographyAnalytics";
     } else if (q.includes("funnel") || q.includes("conversion")) {
-      topIntent = "funnelAnalysis";
+      topIntent = "subscriptionAnalytics";
     } else {
       // Universal Dynamic Fallback
       return {
         question,
         intent: "Universal Analytics Assistant",
         metric_affected: "General StreamFlow Workspace Metrics",
+        selected_dataset: "users.csv",
+        extracted_entities: "Overall StreamFlow Metrics",
         answer: `I parsed your question '${question}' against the StreamFlow database. Here is the general product health overview for the metrics related to your query.`,
         chart_type: "table",
         chart_data: fallbackOverview.metrics,
@@ -648,7 +610,7 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     };
   }
   
-  if (topIntent === "genreCountryAnalysis") {
+  if (topIntent === "genreAnalytics" || topIntent === "genreCountryAnalysis") {
     const genre_data = [
       { country: "India", streams: 95000, genre: "Bollywood" },
       { country: "USA", streams: 85000, genre: "Pop" },
@@ -658,32 +620,34 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     ];
     return {
       question,
-      intent: "Genre Country Analytics",
-      metric_affected: "Genre Streams by Country",
-      answer: "Bollywood is the most listened genre in India (95K streams), Pop in USA (85K streams), Rock in UK (62K streams), Electronic in Germany (55K streams), and J-Pop in Japan (48K streams).",
+      intent: "Genre Analytics",
+      metric_affected: "Fastest Growing Genre & Listening Time",
+      selected_dataset: "songs.csv",
+      extracted_entities: "Country: India, Germany | Genres: Pop, Rock, Electronic",
+      answer: "Bollywood is the fastest growing genre in India (↑ 14% WoW, 95K streams). In Germany, Electronic music is the most popular with 55K streams, showing an 18% growth month-over-month.",
       chart_type: "bar",
       chart_data: genre_data,
       insights: [
         {
-          title: "India dominates streaming volume via Bollywood",
-          summary: "Bollywood tracks represent 95K streams, making India the highest streaming country by single-genre density.",
+          title: "Bollywood leads single-genre streaming density",
+          summary: "Bollywood tracks account for 95K streams, showing massive geographic loyalty in South Asia.",
           confidence: 94,
-          recommendation: "Increase South Asian local artist catalog acquisitions.",
+          recommendation: "Increase catalog budgets for Indian and South Asian regional content creators.",
           priority: "High"
         }
       ],
-      generated_query: "SELECT country, genre, count(*) as streams FROM streams_history GROUP BY country, genre ORDER BY streams DESC;",
-      follow_ups: ["Which language is listened to the most?", "Show genre trends in Germany"],
+      generated_query: "SELECT genre, count(*) as streams, avg(duration) as avg_duration FROM songs GROUP BY genre ORDER BY streams DESC;",
+      follow_ups: ["Which artists are driving Premium subscriptions?", "Compare Pop vs Rock listening time."],
       key_findings: [
-        "India leads in single-genre streaming density via Bollywood.",
-        "Pop music has global dominance in Western regions (USA/UK).",
-        "J-Pop remains a highly isolated local market trend in Japan."
+        "Bollywood is growing fastest in India with 95K streams (↑ 14%).",
+        "Pop leads Western markets with Pop (85K) and Rock (62K) stream totals.",
+        "Pop converts Freemium users to Paid Premium subscriptions at a 12% higher rate."
       ],
-      root_cause: "CURATED regional playlist editorial placements and localized artist promotion campaigns.",
-      business_impact: "Localized genre streaming feeds regional ad-insertion efficiency and Premium upgrade pipelines.",
+      root_cause: "Curated editorial playlists and regional artist cross-promotions on the home tab.",
+      business_impact: "Genre popularity maps directly to Premium subscription upgrades and ad impressions.",
       recommendations: [
-        "Partner with Indian music labels to secure early release tracks.",
-        "Promote global crossover Pop playlists to US Premium cohorts."
+        "Partner with local Indian labels to capture early-release catalog exclusive rights.",
+        "A/B test genre-specific banner recommendations on mobile homepages."
       ],
       confidence_level: "High",
       confidence_score: 94,
@@ -701,8 +665,10 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     return {
       question,
       intent: "Language Analytics",
-      metric_affected: "Music Language Streams Share",
-      answer: "English is the most listened language representing 52% of total music stream shares, followed by Spanish at 22% and Hindi at 14%.",
+      metric_affected: "Music Language Streams Share & Listening Time",
+      selected_dataset: "songs.csv",
+      extracted_entities: "Languages: Hindi, English, Spanish",
+      answer: "English is the most listened language representing 52% of total music stream shares, followed by Spanish at 22% and Hindi at 14%. Hindi tracks show the highest average listening time per session.",
       chart_type: "bar",
       chart_data: lang_data,
       insights: [
@@ -715,7 +681,7 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
         }
       ],
       generated_query: "SELECT track_language, count(*) * 100.0 / sum(count(*)) over() as share FROM track_streams GROUP BY track_language ORDER BY share DESC;",
-      follow_ups: ["What is the most listened genre country wise?", "Which language has the highest skip rate?"],
+      follow_ups: ["Which language has grown this month?", "Compare Hindi vs English."],
       key_findings: [
         "English remains the global baseline with 52% of streams.",
         "Spanish is the fastest-growing global language share at 22%.",
@@ -744,6 +710,8 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
       question,
       intent: "Search Keyword Analytics",
       metric_affected: "Top Search Keywords & Stream Conversions",
+      selected_dataset: "search.csv",
+      extracted_entities: "Keywords: Lo-Fi Beats, Sad Songs",
       answer: "The most common keyword typed in the search bar is 'Lo-Fi Beats' (28.4K searches) with a conversion rate of 82% to play song. 'Sad Songs' has the highest conversion rate to stream at 85%.",
       chart_type: "table",
       chart_data: keyword_data,
@@ -757,7 +725,7 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
         }
       ],
       generated_query: "SELECT query_keyword, count(*) as searches, avg(converted_to_stream) as conversion FROM search_events GROUP BY query_keyword ORDER BY searches DESC LIMIT 5;",
-      follow_ups: ["Show search keywords by device type", "What is the average time to start streaming after search?"],
+      follow_ups: ["Which searches return no results?", "What do users search for in India?"],
       key_findings: [
         "'Lo-Fi Beats' is the top searched term with 28.4K inquiries.",
         "'Sad Songs' leads stream conversions at 85%.",
@@ -774,7 +742,7 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     };
   }
 
-  if (topIntent === "planDistributionAnalysis") {
+  if (topIntent === "subscriptionAnalytics" || topIntent === "planDistributionAnalysis") {
     const dist_data = [
       { stage: "Total Active Users", users: 125000 },
       { stage: "Freemium Users", users: 87000 },
@@ -782,9 +750,11 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
     ];
     return {
       question,
-      intent: "Plan Distribution Analytics",
-      metric_affected: "Freemium vs Premium Plan Distribution",
-      answer: "Out of 125,000 active users, 87,000 (69.6%) are using the Freemium tier, while 38,000 (30.4%) have active Paid Premium Subscriptions.",
+      intent: "Subscription Analytics",
+      metric_affected: "Freemium vs Premium Plan Distribution & Revenue",
+      selected_dataset: "subscription.csv",
+      extracted_entities: "Plan: Freemium, Premium, Family, Student",
+      answer: "Out of 125,000 active users, 87,000 (69.6%) are using the Freemium tier, while 38,000 (30.4%) have active Paid Premium Subscriptions. Family plans generate the highest average revenue per user (ARPU).",
       chart_type: "funnel",
       chart_data: dist_data,
       insights: [
@@ -796,8 +766,8 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
           priority: "High"
         }
       ],
-      generated_query: "SELECT plan_type, count(distinct user_id) FROM users GROUP BY plan_type;",
-      follow_ups: ["Compare Premium vs Free retention", "What is the average upgrade conversion rate?"],
+      generated_query: "SELECT plan_type, count(distinct user_id), sum(revenue) FROM subscription GROUP BY plan_type;",
+      follow_ups: ["Which plan generates the most revenue?", "Which country has the highest Premium conversion?"],
       key_findings: [
         "Freemium users account for 87,000 (69.6%) of active pool.",
         "Premium paid subscribers reached 38,000 (30.4%).",
@@ -813,53 +783,185 @@ export function getFallbackQueryResponse(question: string): QueryResponse {
       confidence_score: 95,
     };
   }
-  
-  if (topIntent === "engagementByFeature") {
-    const eng_data = [
-      { feature: "Playlists", avgSessionMin: 14.5 },
-      { feature: "Smart Search", avgSessionMin: 11.2 },
-      { feature: "Offline Sync", avgSessionMin: 8.9 },
-      { feature: "Lyrics Translation", avgSessionMin: 6.4 }
+
+  if (topIntent === "recommendationAnalytics") {
+    const rec_data = [
+      { algorithm: "Collaborative", ctr: 24.5 },
+      { algorithm: "Content-Based", ctr: 18.2 },
+      { algorithm: "Popularity", ctr: 12.6 }
     ];
     return {
       question,
-      intent: "Engagement by Feature",
-      metric_affected: "Session duration by feature",
-      answer: "Users spend the most time engaging with Playlists (averaging 14.5 minutes per session), compared to 11.2 minutes for Smart Search.",
+      intent: "Recommendation Analytics",
+      metric_affected: "Click-Through Rate (CTR) by Algorithm",
+      selected_dataset: "recommendations.csv",
+      extracted_entities: "Algorithms: Collaborative Filtering, Content-Based, Popularity",
+      answer: "Collaborative filtering recommendations show the highest click-through rate (CTR) at 24.5%, compared to 18.2% for Content-Based methods. Recommended tracks show a skip rate under 15% on Collaborative plans.",
       chart_type: "bar",
-      chart_data: eng_data,
+      chart_data: rec_data,
       insights: [
         {
-          title: "Playlists session duration is highly sticky",
-          summary: "Playlists leads average session time at 14.5 minutes, showing deeper user engagement.",
-          confidence: 87,
-          recommendation: "Optimize playlist loading times to keep engagement high.",
+          title: "Collaborative filtering shows clear performance lead",
+          summary: "CTR for Collaborative recommendations is 6.3 percentage points higher than content-based matches.",
+          confidence: 90,
+          recommendation: "Fully transition home-screen feeds to use the new Collaborative algorithm.",
+          priority: "High"
+        }
+      ],
+      generated_query: "SELECT algorithm_name, count(distinct case when clicked=1 then user_id end) * 100.0 / count(*) as ctr FROM recommendations GROUP BY algorithm_name;",
+      follow_ups: ["Which recommended songs are skipped?", "Which recommendation algorithm performs best?"],
+      key_findings: [
+        "Collaborative Filtering leads CTR at 24.5%.",
+        "Content-Based is second at 18.2% conversion.",
+        "Popularity-based recommendations perform lowest at 12.6% CTR."
+      ],
+      root_cause: "Leveraging user cohort listening patterns produces more relevant recommendations than simple audio attributes.",
+      business_impact: "Higher CTR directly increases daily session lengths and reduces user drop-off.",
+      recommendations: [
+        "Deploy the Collaborative engine to all desktop web clients.",
+        "A/B test a hybrid Collaborative/Content-Based model for mobile users."
+      ],
+      confidence_level: "High",
+      confidence_score: 90,
+    };
+  }
+
+  if (topIntent === "listeningBehaviour") {
+    const skip_data = [
+      { category: "Curated Playlists", skip_rate: 14 },
+      { category: "Recommendations", skip_rate: 18 },
+      { category: "Organic Radio", "skip_rate": 26 },
+      { category: "Independent Albums", "skip_rate": 34 }
+    ];
+    return {
+      question,
+      intent: "Listening Behaviour",
+      metric_affected: "Song Skip Rate & Playlist Retention",
+      selected_dataset: "listening_events.csv",
+      extracted_entities: "Playlists: Curated Playlists, Recommendations | Actions: Skips",
+      answer: "Curated playlists have the lowest skip rate at 14% and improve 30-day retention to 81%. Independent album streams have the highest skip rate at 34%.",
+      chart_type: "bar",
+      chart_data: skip_data,
+      insights: [
+        {
+          title: "Curated playlists improve retention and satisfaction",
+          summary: "Skip rates remain low (14%) inside editor-curated playlists, verifying high song selection quality.",
+          confidence: 92,
+          recommendation: "Direct onboarding users to curated editorial playlists instead of self-selected albums.",
+          priority: "High"
+        }
+      ],
+      generated_query: "SELECT category, count(case when skipped=1 then 1 end) * 100.0 / count(*) as skip_rate FROM listening_events GROUP BY category;",
+      follow_ups: ["Which playlists improve retention?", "Which songs are skipped most?"],
+      key_findings: [
+        "Curated playlists lead with a low skip rate of 14%.",
+        "Recommendations have a 18% skip rate.",
+        "Independent albums show a high skip rate (34%)."
+      ],
+      root_cause: "Familiar editor tracks reduce user skip behavior and maintain active audio sessions.",
+      business_impact: "Lowering average skip rates extends total listening time and boosts ad-revenue shares.",
+      recommendations: [
+        "Promote editor playlists on the initial onboarding screen.",
+        "Implement smart track cross-fading to reduce bounce clicks."
+      ],
+      confidence_level: "High",
+      confidence_score: 92,
+    };
+  }
+
+  if (topIntent === "geographyAnalytics") {
+    const geo_data = [
+      { country: "USA", hours: 420000 },
+      { country: "India", hours: 390000 },
+      { country: "UK", hours: 210000 },
+      { country: "Germany", hours: 180000 }
+    ];
+    return {
+      question,
+      intent: "Geography Analytics",
+      metric_affected: "Total Listening Time by Country",
+      selected_dataset: "users.csv",
+      extracted_entities: "Countries: USA, India, UK, Germany",
+      answer: "USA leads with 420K total music listening hours. India is a close second at 390K hours but has the fastest growing user pool. Mumbai leads city-wise Premium conversions.",
+      chart_type: "bar",
+      chart_data: geo_data,
+      insights: [
+        {
+          title: "India represents the primary growth vector",
+          summary: "Listening hours in India reached 390K, and user signups are expanding at 18% month-over-month.",
+          confidence: 93,
+          recommendation: "Invest in localized regional payment gateways in India to optimize Premium upgrades.",
+          priority: "High"
+        }
+      ],
+      generated_query: "SELECT country, sum(listening_time) as total_hours FROM users GROUP BY country ORDER BY total_hours DESC;",
+      follow_ups: ["Compare India vs USA.", "Which city has the highest Premium adoption?"],
+      key_findings: [
+        "USA leads listening volume at 420K hours.",
+        "India is the fastest-expanding region with 390K hours.",
+        "Mumbai leads regional cities in paid premium subscriptions (34.2%)."
+      ],
+      root_cause: "High mobile device penetration and low data costs in India drive massive stream volumes.",
+      business_impact: "Capitalizing on regional conversions protects global market share.",
+      recommendations: [
+        "Roll out localized student pricing plans in India.",
+        "Collaborate with regional telecom providers to bundle subscriptions."
+      ],
+      confidence_level: "High",
+      confidence_score: 93,
+    };
+  }
+
+  if (topIntent === "timeAnalytics") {
+    const time_data = [
+      { hour: "08:00", weekday_listeners: 15000, weekend_listeners: 8000 },
+      { hour: "12:00", weekday_listeners: 12000, weekend_listeners: 14000 },
+      { hour: "18:00", weekday_listeners: 28000, weekend_listeners: 16000 },
+      { hour: "22:00", weekday_listeners: 19000, weekend_listeners: 18000 }
+    ];
+    return {
+      question,
+      intent: "Time Analytics",
+      metric_affected: "Peak Listening Hour & Weekend Trends",
+      selected_dataset: "listening_events.csv",
+      extracted_entities: "Time Slots: Commute, Lunch, Evening | Plan: Premium",
+      answer: "The peak listening hour is 6:00 PM to 8:00 PM (commute hours) on weekdays with 28K active listeners. Weekends show a flatter, more distributed listening curve peaking at midday.",
+      chart_type: "line",
+      chart_data: time_data,
+      insights: [
+        {
+          title: "Commute hours drive peak weekday streaming",
+          summary: "Weekday listeners spike to 28K at 6:00 PM, indicating heavy commute listening.",
+          confidence: 89,
+          recommendation: "Push offline playlist downloads before the morning/evening commute hours.",
           priority: "Medium"
         }
       ],
-      generated_query: "SELECT feature, avg(session_duration) FROM feature_sessions GROUP BY feature ORDER BY avg(session_duration) DESC;",
-      follow_ups: ["Compare engagement by plan type", "Which feature leads to longest sessions?"],
+      generated_query: "SELECT strftime('%H', timestamp) as hour, count(*) FROM listening_events GROUP BY hour ORDER BY count(*) DESC;",
+      follow_ups: ["What time do Premium users listen to music?", "Compare weekday vs weekend listening time."],
       key_findings: [
-        "Playlists sessions average 14.5 minutes.",
-        "Smart Search session interaction average is 11.2 minutes.",
-        "Lyrics Translation sessions remain short (6.4 minutes)."
+        "Peak commute listening occurs at 6:00 PM with 28K listeners.",
+        "Midday (12:00 PM) is the highest active slot on weekends (14K).",
+        "Premium users stream 45% more music late at night compared to Free users."
       ],
-      root_cause: "Playlist listening loops create passive continuous audio streams.",
-      business_impact: "High session duration drives ad conversions for Free users and retention for Premium users.",
+      root_cause: "Commute habits and bedtime relaxation routines define weekday peak schedules.",
+      business_impact: "Targeted push notifications during peak windows increase total active sessions.",
       recommendations: [
-        "Optimize playlist loading times to prevent stream abandonment.",
-        "Recommend similar albums when a playlist finishes playing."
+        "Trigger 'Download Offline Playlists' alerts at 4:30 PM on weekdays.",
+        "Promote calm ambient tracks after 10:00 PM."
       ],
-      confidence_level: "Medium",
-      confidence_score: 87,
+      confidence_level: "High",
+      confidence_score: 89,
     };
   }
-  
+
   // Default overview fallback
   return {
     question,
     intent: "Product Health Overview",
     metric_affected: "Product Health Portfolio",
+    selected_dataset: "users.csv",
+    extracted_entities: "Overall StreamFlow Metrics",
     answer: "The product is growing revenue and retention, but engagement softened in late June. The highest priority is diagnosing the DAU decline while amplifying the Playlists retention loop.",
     chart_type: "table",
     chart_data: fallbackOverview.metrics,

@@ -1345,6 +1345,29 @@ export default function Home() {
                   ) : answer ? (
                     <div className="space-y-4">
                       
+                      {/* Product Intelligence Query Pipeline Tracing */}
+                      <div className="rounded-lg border border-pine/20 bg-mint/5 p-5 shadow-panel space-y-3">
+                        <p className="text-[10px] font-bold text-pine uppercase tracking-wider">Product Intelligence Query Pipeline</p>
+                        <div className="flex flex-wrap items-stretch gap-2 text-[11px]">
+                          <div className="flex-1 bg-white border border-ink/10 rounded p-2.5 min-w-[140px] flex flex-col justify-between">
+                            <span className="block text-[9px] uppercase text-ink/40 font-bold mb-1">Intent Category</span>
+                            <span className="font-bold text-pine">{answer.intent}</span>
+                          </div>
+                          <div className="flex-1 bg-white border border-ink/10 rounded p-2.5 min-w-[140px] flex flex-col justify-between">
+                            <span className="block text-[9px] uppercase text-ink/40 font-bold mb-1">Selected Dataset</span>
+                            <span className="font-bold text-ink">{answer.selected_dataset ?? "listening_events.csv"}</span>
+                          </div>
+                          <div className="flex-1 bg-white border border-ink/10 rounded p-2.5 min-w-[140px] flex flex-col justify-between">
+                            <span className="block text-[9px] uppercase text-ink/40 font-bold mb-1">Extracted Entities</span>
+                            <span className="font-mono text-[10px] text-coral font-bold">{answer.extracted_entities ?? "Country: India, Genre: Pop"}</span>
+                          </div>
+                          <div className="flex-1 bg-white border border-ink/10 rounded p-2.5 min-w-[140px] flex flex-col justify-between">
+                            <span className="block text-[9px] uppercase text-ink/40 font-bold mb-1">Computed Metrics</span>
+                            <span className="font-bold text-pine">{answer.metric_affected ?? "Listening Time"}</span>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* 1. Summary Card & Metric Affected & Confidence Badge */}
                       <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/10 pb-3 mb-3">
